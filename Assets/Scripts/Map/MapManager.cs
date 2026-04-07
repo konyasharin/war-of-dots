@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
@@ -8,12 +9,12 @@ namespace DotWars.Map
         public static MapManager Instance { get; private set; }
 
         [SerializeField] private Tilemap terrainTilemap;
-        [SerializeField] private TerrainTileMapping[] tileMappings;
 
         private TerrainConfig[,] _terrainGrid;
         private int _width;
         private int _height;
         private BoundsInt _bounds;
+        private Dictionary<string, TerrainConfig> _configByName;
 
         public int Width => _width;
         public int Height => _height;
@@ -28,7 +29,19 @@ namespace DotWars.Map
             }
             Instance = this;
 
+            LoadTerrainConfigs();
             BuildTerrainGrid();
+        }
+
+        private void LoadTerrainConfigs()
+        {
+            _configByName = new Dictionary<string, TerrainConfig>();
+            var configs = Resources.LoadAll<TerrainConfig>("Terrain");
+            foreach (var config in configs)
+            {
+                _configByName[config.terrainType.ToString()] = config;
+            }
+            Debug.Log($"[MapManager] Loaded {configs.Length} terrain configs from Resources");
         }
 
         private void BuildTerrainGrid()
@@ -39,15 +52,7 @@ namespace DotWars.Map
             _height = _bounds.size.y;
             _terrainGrid = new TerrainConfig[_width, _height];
 
-            Debug.Log($"[MapManager] Bounds: {_bounds}, Size: {_width}x{_height}, Mappings: {tileMappings?.Length ?? 0}");
-
-            if (tileMappings != null)
-            {
-                for (int i = 0; i < tileMappings.Length; i++)
-                    Debug.Log($"[MapManager] Mapping[{i}]: tile={tileMappings[i].tile} terrainData={tileMappings[i].terrainData}");
-            }
-
-            int nullTiles = 0, unmapped = 0, mapped = 0;
+            int mapped = 0, unmapped = 0, nullTiles = 0;
 
             for (int x = 0; x < _width; x++)
             {
@@ -58,26 +63,19 @@ namespace DotWars.Map
 
                     if (tile == null) { nullTiles++; continue; }
 
-                    _terrainGrid[x, y] = GetTerrainConfigForTile(tile);
-                    if (_terrainGrid[x, y] == null) unmapped++;
-                    else mapped++;
+                    if (_configByName.TryGetValue(tile.name, out var config))
+                    {
+                        _terrainGrid[x, y] = config;
+                        mapped++;
+                    }
+                    else
+                    {
+                        unmapped++;
+                    }
                 }
             }
 
-            Debug.Log($"[MapManager] Grid built: {mapped} mapped, {unmapped} unmapped, {nullTiles} null tiles");
-        }
-
-        private TerrainConfig GetTerrainConfigForTile(TileBase tile)
-        {
-            if (tile == null) return null;
-
-            foreach (var mapping in tileMappings)
-            {
-                if (mapping.tile == tile)
-                    return mapping.terrainData;
-            }
-
-            return null;
+            Debug.Log($"[MapManager] Grid: {_width}x{_height}, {mapped} mapped, {unmapped} unmapped, {nullTiles} empty");
         }
 
         public TerrainConfig GetTerrainAt(Vector2Int gridPos)
@@ -121,12 +119,5 @@ namespace DotWars.Map
             int y = gridPos.y - _bounds.yMin;
             return x >= 0 && x < _width && y >= 0 && y < _height;
         }
-    }
-
-    [System.Serializable]
-    public struct TerrainTileMapping
-    {
-        public TileBase tile;
-        public TerrainConfig terrainData;
     }
 }

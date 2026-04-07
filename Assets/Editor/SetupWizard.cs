@@ -35,7 +35,7 @@ public class SetupWizard : Editor
         var ringSprite = CreateRingSprite();
         EnsureDivisionLayer();
         var prefab = CreateDivisionPrefab(circleSprite, ringSprite);
-        CreateGameScene(tiles, terrainDatas, gameConfig, prefab, infantryStats, tankStats);
+        CreateGameScene(tiles, gameConfig, prefab, infantryStats, tankStats);
 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -46,7 +46,7 @@ public class SetupWizard : Editor
     {
         string[] folders =
         {
-            "Assets/Tiles", "Assets/ScriptableObjects/Terrain", "Assets/ScriptableObjects/Units",
+            "Assets/Tiles", "Assets/Resources/Terrain", "Assets/ScriptableObjects/Units",
             "Assets/ScriptableObjects", "Assets/Prefabs/Units", "Assets/Sprites",
             "Assets/Scenes", "Assets/Editor"
         };
@@ -169,7 +169,7 @@ public class SetupWizard : Editor
         for (int i = 0; i < TerrainDefs.Length; i++)
         {
             var def = TerrainDefs[i];
-            var path = $"Assets/ScriptableObjects/Terrain/{def.type}Data.asset";
+            var path = $"Assets/Resources/Terrain/{def.type}.asset";
             var data = AssetDatabase.LoadAssetAtPath<DotWars.Map.TerrainConfig>(path);
             if (data == null)
             {
@@ -280,8 +280,7 @@ public class SetupWizard : Editor
     }
 
     private static void CreateGameScene(
-        Tile[] tiles, DotWars.Map.TerrainConfig[] terrainDatas,
-        GameConfig gameConfig, GameObject divisionPrefab,
+        Tile[] tiles, GameConfig gameConfig, GameObject divisionPrefab,
         DivisionStats infantryStats, DivisionStats tankStats)
     {
         var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
@@ -319,21 +318,11 @@ public class SetupWizard : Editor
         gmSo.FindProperty("gameConfig").objectReferenceValue = gameConfig;
         gmSo.ApplyModifiedProperties();
 
-        // MapManager
+        // MapManager (terrain configs loaded from Resources at runtime)
         var mmGo = new GameObject("MapManager");
         var mm = mmGo.AddComponent<MapManager>();
         var mmSo = new SerializedObject(mm);
         mmSo.FindProperty("terrainTilemap").objectReferenceValue = tilemap;
-
-        // Build tile mappings
-        var mappingsProp = mmSo.FindProperty("tileMappings");
-        mappingsProp.arraySize = tiles.Length;
-        for (int i = 0; i < tiles.Length; i++)
-        {
-            var elem = mappingsProp.GetArrayElementAtIndex(i);
-            elem.FindPropertyRelative("tile").objectReferenceValue = tiles[i];
-            elem.FindPropertyRelative("terrainData").objectReferenceValue = terrainDatas[i];
-        }
         mmSo.ApplyModifiedProperties();
 
         // DivisionSpawner
