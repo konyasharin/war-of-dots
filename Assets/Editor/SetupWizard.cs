@@ -70,91 +70,72 @@ public class SetupWizard : Editor
 
     private static Sprite CreateWhiteSquareSprite()
     {
-        var path = "Assets/Sprites/WhiteSquare.png";
-        if (!File.Exists(path))
+        return CreateSpriteAsset("Assets/Sprites/WhiteSquare.png", 32, 32, FilterMode.Point, (tex) =>
         {
-            var tex = new Texture2D(32, 32);
             var pixels = new Color[32 * 32];
             for (int i = 0; i < pixels.Length; i++) pixels[i] = Color.white;
             tex.SetPixels(pixels);
-            tex.Apply();
-            File.WriteAllBytes(path, tex.EncodeToPNG());
-            Object.DestroyImmediate(tex);
-            AssetDatabase.Refresh();
-
-            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
-            importer.textureType = TextureImporterType.Sprite;
-            importer.spritePixelsPerUnit = 32;
-            importer.filterMode = FilterMode.Point;
-            importer.SaveAndReimport();
-        }
-        return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        });
     }
 
     private static Sprite CreateCircleSprite()
     {
-        var path = "Assets/Sprites/Circle.png";
-        if (!File.Exists(path))
+        return CreateSpriteAsset("Assets/Sprites/Circle.png", 64, 64, FilterMode.Bilinear, (tex) =>
         {
-            int size = 64;
-            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
-            float center = size / 2f;
-            float radius = size / 2f - 1;
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
+            float center = 32f;
+            float radius = 31f;
+            for (int y = 0; y < 64; y++)
+                for (int x = 0; x < 64; x++)
                 {
                     float dist = Vector2.Distance(new Vector2(x, y), new Vector2(center, center));
-                    float alpha = Mathf.Clamp01(radius - dist + 0.5f);
-                    tex.SetPixel(x, y, new Color(1, 1, 1, alpha));
+                    tex.SetPixel(x, y, new Color(1, 1, 1, Mathf.Clamp01(radius - dist + 0.5f)));
                 }
-            }
-            tex.Apply();
-            File.WriteAllBytes(path, tex.EncodeToPNG());
-            Object.DestroyImmediate(tex);
-            AssetDatabase.Refresh();
-
-            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
-            importer.textureType = TextureImporterType.Sprite;
-            importer.spritePixelsPerUnit = 64;
-            importer.filterMode = FilterMode.Bilinear;
-            importer.SaveAndReimport();
-        }
-        return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        });
     }
 
     private static Sprite CreateRingSprite()
     {
-        var path = "Assets/Sprites/Ring.png";
-        if (!File.Exists(path))
+        return CreateSpriteAsset("Assets/Sprites/Ring.png", 64, 64, FilterMode.Bilinear, (tex) =>
         {
-            int size = 64;
-            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
-            float center = size / 2f;
-            float outerR = size / 2f - 1;
-            float innerR = outerR - 3;
-            for (int y = 0; y < size; y++)
-            {
-                for (int x = 0; x < size; x++)
+            float center = 32f;
+            float outerR = 31f;
+            float innerR = 28f;
+            for (int y = 0; y < 64; y++)
+                for (int x = 0; x < 64; x++)
                 {
                     float dist = Vector2.Distance(new Vector2(x, y), new Vector2(center, center));
-                    float outerAlpha = Mathf.Clamp01(outerR - dist + 0.5f);
-                    float innerAlpha = Mathf.Clamp01(dist - innerR + 0.5f);
-                    tex.SetPixel(x, y, new Color(1, 1, 1, outerAlpha * innerAlpha));
+                    float a = Mathf.Clamp01(outerR - dist + 0.5f) * Mathf.Clamp01(dist - innerR + 0.5f);
+                    tex.SetPixel(x, y, new Color(1, 1, 1, a));
                 }
-            }
+        });
+    }
+
+    private static Sprite CreateSpriteAsset(string path, int w, int h, FilterMode filter, System.Action<Texture2D> paint)
+    {
+        if (!File.Exists(path))
+        {
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            paint(tex);
             tex.Apply();
             File.WriteAllBytes(path, tex.EncodeToPNG());
             Object.DestroyImmediate(tex);
-            AssetDatabase.Refresh();
+        }
 
-            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+
+        var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+        if (importer != null)
+        {
             importer.textureType = TextureImporterType.Sprite;
-            importer.spritePixelsPerUnit = 64;
-            importer.filterMode = FilterMode.Bilinear;
+            importer.spritePixelsPerUnit = w;
+            importer.filterMode = filter;
             importer.SaveAndReimport();
         }
-        return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+
+        var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        if (sprite == null)
+            Debug.LogWarning($"[DotWars] Failed to load sprite at {path}");
+        return sprite;
     }
 
     private static Tile[] CreateTiles(Sprite sprite)
@@ -168,11 +149,15 @@ public class SetupWizard : Editor
             if (tile == null)
             {
                 tile = ScriptableObject.CreateInstance<Tile>();
-                tile.sprite = sprite;
-                ColorUtility.TryParseHtmlString(def.hex, out var color);
-                tile.color = color;
                 AssetDatabase.CreateAsset(tile, path);
             }
+
+            // Always update sprite and color (fixes null sprite from failed first run)
+            tile.sprite = sprite;
+            ColorUtility.TryParseHtmlString(def.hex, out var color);
+            tile.color = color;
+            EditorUtility.SetDirty(tile);
+
             tiles[i] = tile;
         }
         return tiles;
@@ -325,6 +310,7 @@ public class SetupWizard : Editor
 
         // Paint the map
         PaintTestMap(tilemap, tiles);
+        tilemap.RefreshAllTiles();
 
         // GameManager
         var gmGo = new GameObject("GameManager");
