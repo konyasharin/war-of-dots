@@ -13,6 +13,7 @@ namespace DotWars.Units
         public float CurrentMorale { get; private set; }
         public bool IsMoving => _path != null && _pathIndex < _path.Count;
         public bool InCombat { get; private set; }
+        public bool IsShip { get; private set; }
 
         private Transform _visual;
         private SpriteRenderer _spriteRenderer;
@@ -34,6 +35,8 @@ namespace DotWars.Units
 
         private Sprite _crackLightSprite;
         private Sprite _crackHeavySprite;
+        private Sprite _originalSprite;
+        private Sprite _shipSprite;
 
         private static readonly Color PlayerColor = new(0.2f, 0.5f, 1f);
         private static readonly Color BotColor = new(1f, 0.25f, 0.25f);
@@ -73,6 +76,8 @@ namespace DotWars.Units
 
             _crackLightSprite = Resources.Load<Sprite>("Sprites/CrackLight");
             _crackHeavySprite = Resources.Load<Sprite>("Sprites/CrackHeavy");
+            _shipSprite = Resources.Load<Sprite>("Sprites/Ship");
+            _originalSprite = _spriteRenderer.sprite;
 
             _spriteRenderer.color = ownerIndex == 0 ? PlayerColor : BotColor;
 
@@ -106,7 +111,7 @@ namespace DotWars.Units
         {
             var currentGrid = MapManager.Instance.WorldToGrid(transform.position);
             bool isInfantry = Stats.divisionType == DivisionType.Infantry;
-            _path = Pathfinding.FindPath(currentGrid, targetGrid, isInfantry);
+            _path = Pathfinding.FindPath(currentGrid, targetGrid, isInfantry, IsShip);
 
             if (_path != null && _path.Count > 1)
             {
@@ -305,6 +310,26 @@ namespace DotWars.Units
                 _crackOverlay.sprite = _crackHeavySprite;
                 _crackOverlay.color = new Color(0, 0, 0, 0.6f);
             }
+        }
+
+        public void ConvertToShip()
+        {
+            if (IsShip) return;
+            IsShip = true;
+            if (_spriteRenderer != null && _shipSprite != null)
+                _spriteRenderer.sprite = _shipSprite;
+            if (_tankDot != null) _tankDot.enabled = false;
+        }
+
+        public void ConvertToLand()
+        {
+            if (!IsShip) return;
+            IsShip = false;
+            if (_spriteRenderer != null && _originalSprite != null)
+                _spriteRenderer.sprite = _originalSprite;
+            // Restore tank dot if tank
+            if (Stats.divisionType == DivisionType.Tank && _tankDot != null)
+                _tankDot.enabled = true;
         }
 
         private void Die()

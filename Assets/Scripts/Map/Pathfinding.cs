@@ -11,10 +11,12 @@ namespace DotWars.Map
             new(1, 1), new(1, -1), new(-1, 1), new(-1, -1)
         };
 
-        public static List<Vector2Int> FindPath(Vector2Int start, Vector2Int end, bool isInfantry)
+        public static List<Vector2Int> FindPath(Vector2Int start, Vector2Int end, bool isInfantry, bool isShip = false)
         {
             var map = MapManager.Instance;
-            if (map == null || !map.IsPassable(end))
+            if (map == null) return null;
+
+            if (!CanTraverse(map, end, isInfantry, isShip))
                 return null;
 
             var openSet = new SortedSet<Node>(new NodeComparer());
@@ -39,15 +41,26 @@ namespace DotWars.Map
                 {
                     var neighbor = current.Position + dir;
 
-                    if (!map.InBounds(neighbor) || closedSet.Contains(neighbor) || !map.IsPassable(neighbor))
+                    if (!map.InBounds(neighbor) || closedSet.Contains(neighbor))
+                        continue;
+
+                    if (!CanTraverse(map, neighbor, isInfantry, isShip))
                         continue;
 
                     var terrain = map.GetTerrainAt(neighbor);
                     float moveCost = dir.x != 0 && dir.y != 0 ? 1.414f : 1f;
 
-                    float speedMod = terrain != null ? terrain.GetSpeedModifier(isInfantry) : 1f;
-                    if (speedMod <= 0f) continue;
-                    moveCost /= speedMod;
+                    if (isShip)
+                    {
+                        // Ships move at constant speed on water
+                        moveCost *= 1f;
+                    }
+                    else
+                    {
+                        float speedMod = terrain != null ? terrain.GetSpeedModifier(isInfantry) : 1f;
+                        if (speedMod <= 0f) continue;
+                        moveCost /= speedMod;
+                    }
 
                     float tentativeG = gScore[current.Position] + moveCost;
 
@@ -62,6 +75,22 @@ namespace DotWars.Map
             }
 
             return null;
+        }
+
+        private static bool CanTraverse(MapManager map, Vector2Int pos, bool isInfantry, bool isShip)
+        {
+            var terrain = map.GetTerrainAt(pos);
+            if (terrain == null) return false;
+
+            if (isShip)
+            {
+                // Ships can traverse water and port tiles
+                return terrain.terrainType == TerrainType.Water || terrain.terrainType == TerrainType.Port;
+            }
+            else
+            {
+                return terrain.isPassable;
+            }
         }
 
         private static float Heuristic(Vector2Int a, Vector2Int b)

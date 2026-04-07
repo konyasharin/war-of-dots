@@ -35,6 +35,7 @@ public class SetupWizard : Editor
         var gameConfig = CreateGameConfig();
         var circleSprite = CreateCircleSprite();
         var ringSprite = CreateRingSprite();
+        var shipSprite = CreateShipSprite();
         var flagSprite = CreateFlagSprite();
         CreateCrackSprites();
         EnsureDivisionLayer();
@@ -219,6 +220,32 @@ public class SetupWizard : Editor
             AssetDatabase.CreateAsset(config, path);
         }
         return config;
+    }
+
+    private static Sprite CreateShipSprite()
+    {
+        return CreateSpriteAsset("Assets/Resources/Sprites/Ship.png", 64, 64, FilterMode.Bilinear, (tex) =>
+        {
+            float cx = 32f, cy = 32f;
+            for (int y = 0; y < 64; y++)
+            {
+                for (int x = 0; x < 64; x++)
+                {
+                    float dy = (y - cy) / 28f; // vertical radius
+                    float dx = (x - cx) / 16f; // horizontal radius (narrower)
+
+                    // Pointed ends: squeeze horizontal radius near top/bottom
+                    float pointFactor = 1f - Mathf.Abs(dy) * 0.6f;
+                    pointFactor = Mathf.Max(pointFactor, 0.15f);
+                    float adjustedDx = dx / pointFactor;
+
+                    float dist = adjustedDx * adjustedDx + dy * dy;
+                    float alpha = Mathf.Clamp01(1f - dist + 0.02f);
+
+                    tex.SetPixel(x, y, new Color(1, 1, 1, alpha));
+                }
+            }
+        });
     }
 
     private static Sprite CreateFlagSprite()
@@ -666,10 +693,10 @@ public class SetupWizard : Editor
         tilemap.SetTile(new Vector3Int(64, 30, 0), city);
 
         // === Ports ===
-        tilemap.SetTile(new Vector3Int(3, 30, 0), port);
-        tilemap.SetTile(new Vector3Int(3, 15, 0), port);
-        tilemap.SetTile(new Vector3Int(96, 30, 0), port);
-        tilemap.SetTile(new Vector3Int(96, 45, 0), port);
+        tilemap.SetTile(new Vector3Int(7, 30, 0), port);
+        tilemap.SetTile(new Vector3Int(7, 15, 0), port);
+        tilemap.SetTile(new Vector3Int(92, 30, 0), port);
+        tilemap.SetTile(new Vector3Int(92, 45, 0), port);
     }
 
     private static void PaintNoisyMountains(Tilemap tilemap, Tile mt, int x1, int y1, int x2, int y2, float seed)

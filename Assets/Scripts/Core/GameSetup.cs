@@ -24,10 +24,10 @@ namespace DotWars.Core
         // Port definitions: gridX, gridY, linked to city index
         private static readonly int[][] PortDefs =
         {
-            new[] { 3, 30, 0 },
-            new[] { 3, 15, 1 },
-            new[] { 96, 30, 4 },
-            new[] { 96, 45, 5 },
+            new[] { 7, 30, 0 },   // Left coast, near player capital
+            new[] { 7, 15, 1 },   // Left coast, near player city 2
+            new[] { 92, 30, 4 },  // Right coast, near bot capital
+            new[] { 92, 45, 5 },  // Right coast, near bot city 3
         };
 
         private Sprite _flagSprite;
