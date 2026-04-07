@@ -33,6 +33,8 @@ namespace DotWars.Units
         private float _shakeTimer;
         private float _hpFillOffsetX;
         private bool _convertOnArrival;
+        private float _stuckTimer;
+        private Vector3 _lastStuckCheckPos;
 
         private Sprite _crackLightSprite;
         private Sprite _crackHeavySprite;
@@ -157,12 +159,33 @@ namespace DotWars.Units
             bool isInfantry = Stats.divisionType == DivisionType.Infantry;
             float speedMod = terrain != null ? terrain.GetSpeedModifier(isInfantry) : 1f;
             float speed = Stats.baseSpeed * speedMod;
-            if (IsShip) speed *= 3f; // Ships are faster
+            if (IsShip) speed *= 3f;
+
+            // Stuck detection: if barely moved in 0.5s, steer around
+            _stuckTimer += Time.deltaTime;
+            if (_stuckTimer > 0.5f)
+            {
+                float moved = Vector3.Distance(transform.position, _lastStuckCheckPos);
+                if (moved < 0.02f && _path != null)
+                {
+                    // Try to nudge sideways to unstick
+                    Vector2 toTarget = ((Vector2)_moveTarget - (Vector2)transform.position).normalized;
+                    Vector2 side = new Vector2(-toTarget.y, toTarget.x) * 0.3f;
+                    if (Random.value > 0.5f) side = -side;
+                    transform.position += (Vector3)side;
+                }
+                _lastStuckCheckPos = transform.position;
+                _stuckTimer = 0;
+            }
+
+            // Avoid friendly units: steer away from nearby allies
+            var avoidOffset = CalculateAvoidance();
 
             Vector2 direction = ((Vector2)_moveTarget - (Vector2)transform.position);
             if (direction.magnitude > 0.05f)
             {
-                var newPos = Vector3.MoveTowards(transform.position, _moveTarget, speed * Time.deltaTime);
+                Vector2 moveDir = direction.normalized + avoidOffset * 0.5f;
+                var newPos = (Vector2)transform.position + moveDir.normalized * speed * Time.deltaTime;
                 _rigidbody.MovePosition(newPos);
             }
             else
@@ -191,6 +214,27 @@ namespace DotWars.Units
             }
 
             UpdatePathLineStart();
+        }
+
+        private Vector2 CalculateAvoidance()
+        {
+            Vector2 avoidDir = Vector2.zero;
+            var colliders = Physics2D.OverlapCircleAll(transform.position, 0.7f);
+            foreach (var col in colliders)
+            {
+                if (col.gameObject == gameObject) continue;
+                var other = col.GetComponent<Division>();
+                if (other == null || other.OwnerIndex != OwnerIndex) continue;
+
+                Vector2 away = (Vector2)transform.position - (Vector2)other.transform.position;
+                float dist = away.magnitude;
+                if (dist < 0.01f) away = Random.insideUnitCircle;
+                else away /= dist;
+
+                float strength = 1f - Mathf.Clamp01(dist / 0.7f);
+                avoidDir += away * strength;
+            }
+            return avoidDir;
         }
 
         private void ProcessCombat()
