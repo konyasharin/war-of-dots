@@ -19,14 +19,14 @@ namespace DotWars.UI
         {
             _buttonStyle = new GUIStyle(GUI.skin.button)
             {
-                fontSize = 14,
+                fontSize = 22,
                 fontStyle = FontStyle.Bold,
-                fixedHeight = 35
+                fixedHeight = 55
             };
 
             _headerStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 16,
+                fontSize = 26,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter
             };
@@ -34,7 +34,7 @@ namespace DotWars.UI
 
             _infoStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 12,
+                fontSize = 18,
                 alignment = TextAnchor.MiddleLeft
             };
             _infoStyle.normal.textColor = new Color(0.8f, 0.8f, 0.8f);
@@ -94,56 +94,49 @@ namespace DotWars.UI
 
             if (!_stylesInit) InitStyles();
 
+            float w = 380;
+            float h = 420;
             float x = 10;
-            float y = Screen.height / 2f - 120;
-            float w = 200;
-            float h = 260;
+            float y = Screen.height / 2f - h / 2f;
 
             // Background
-            GUI.color = new Color(0, 0, 0, 0.75f);
+            GUI.color = new Color(0, 0, 0, 0.8f);
             GUI.DrawTexture(new Rect(x, y, w, h), Texture2D.whiteTexture);
-            GUI.color = Color.white;
-
-            // Border
             GUI.color = new Color(0.3f, 0.5f, 1f, 0.6f);
-            GUI.DrawTexture(new Rect(x, y, w, 2), Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(x, y + h - 2, w, 2), Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(x, y, 2, h), Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(x + w - 2, y, 2, h), Texture2D.whiteTexture);
+            DrawBorder(new Rect(x, y, w, h), 2);
             GUI.color = Color.white;
 
             string cityName = _selectedCity.IsCapital ? "Capital" : "City";
-            GUI.Label(new Rect(x, y + 5, w, 25), cityName, _headerStyle);
+            GUI.Label(new Rect(x, y + 10, w, 35), cityName, _headerStyle);
+
+            if (GUI.Button(new Rect(x + w - 40, y + 10, 30, 25), "X"))
+            {
+                _visible = false;
+                return;
+            }
 
             float gold = EconomyManager.Instance != null ? EconomyManager.Instance.Gold[0] : 0;
-            GUI.Label(new Rect(x + 10, y + 30, w - 20, 20), $"Gold: ${(int)gold}", _infoStyle);
+            GUI.Label(new Rect(x + 20, y + 50, w - 40, 28), $"Gold: ${(int)gold}", _infoStyle);
 
-            float by = y + 55;
+            float by = y + 85;
 
-            // Units
-            GUI.Label(new Rect(x + 10, by, w - 20, 20), "Units:", _infoStyle);
-            by += 22;
+            GUI.Label(new Rect(x + 20, by, w - 40, 28), "Units:", _infoStyle);
+            by += 32;
 
-            if (GUI.Button(new Rect(x + 10, by, w - 20, 35), "Infantry  $100", _buttonStyle))
+            if (GUI.Button(new Rect(x + 20, by, w - 40, 55), "Infantry  $100", _buttonStyle))
                 BuyUnit(DivisionType.Infantry, 100);
-            by += 40;
+            by += 65;
 
-            if (GUI.Button(new Rect(x + 10, by, w - 20, 35), "Tank  $200", _buttonStyle))
+            if (GUI.Button(new Rect(x + 20, by, w - 40, 55), "Tank  $200", _buttonStyle))
                 BuyUnit(DivisionType.Tank, 200);
-            by += 45;
+            by += 70;
 
-            // Buildings (future)
-            GUI.Label(new Rect(x + 10, by, w - 20, 20), "Buildings:", _infoStyle);
-            by += 22;
+            GUI.Label(new Rect(x + 20, by, w - 40, 28), "Buildings:", _infoStyle);
+            by += 32;
 
             GUI.enabled = false;
-            GUI.Button(new Rect(x + 10, by, w - 20, 35), "Port  $150 (soon)", _buttonStyle);
+            GUI.Button(new Rect(x + 20, by, w - 40, 55), "Port  $150 (soon)", _buttonStyle);
             GUI.enabled = true;
-            by += 40;
-
-            // Close
-            if (GUI.Button(new Rect(x + w - 30, y + 5, 25, 20), "X"))
-                _visible = false;
         }
 
         private void BuyUnit(DivisionType type, int cost)
@@ -171,6 +164,14 @@ namespace DotWars.UI
                     return pos;
             }
             return center;
+        }
+
+        private void DrawBorder(Rect r, float t)
+        {
+            GUI.DrawTexture(new Rect(r.x, r.y, r.width, t), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(r.x, r.yMax - t, r.width, t), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(r.x, r.y, t, r.height), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(r.xMax - t, r.y, t, r.height), Texture2D.whiteTexture);
         }
     }
 }

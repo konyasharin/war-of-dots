@@ -32,6 +32,7 @@ namespace DotWars.Units
 
         private float _shakeTimer;
         private float _hpFillOffsetX;
+        private bool _convertOnArrival;
 
         private Sprite _crackLightSprite;
         private Sprite _crackHeavySprite;
@@ -164,6 +165,13 @@ namespace DotWars.Units
                 {
                     _path = null;
                     ClearPathLine();
+
+                    if (_convertOnArrival)
+                    {
+                        _convertOnArrival = false;
+                        if (!IsShip) ConvertToShip();
+                        else ConvertToLand();
+                    }
                 }
             }
 
@@ -310,6 +318,12 @@ namespace DotWars.Units
                 _crackOverlay.sprite = _crackHeavySprite;
                 _crackOverlay.color = new Color(0, 0, 0, 0.6f);
             }
+        }
+
+        public void MoveToAndConvert(Vector2Int targetGrid)
+        {
+            _convertOnArrival = true;
+            MoveTo(targetGrid);
         }
 
         public void SetFogVisible(bool visible)
