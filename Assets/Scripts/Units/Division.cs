@@ -202,7 +202,7 @@ namespace DotWars.Units
             if (_shakeTimer > 0)
             {
                 _shakeTimer -= Time.deltaTime;
-                float intensity = 0.06f;
+                float intensity = 0.02f;
                 _visual.localPosition = new Vector3(
                     Random.Range(-intensity, intensity),
                     Random.Range(-intensity, intensity),

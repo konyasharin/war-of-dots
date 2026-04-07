@@ -7,6 +7,8 @@ using DotWars.Core;
 using DotWars.Map;
 using DotWars.Units;
 using DotWars.CameraSystem;
+using DotWars.Economy;
+using DotWars.UI;
 
 public class SetupWizard : Editor
 {
@@ -28,15 +30,16 @@ public class SetupWizard : Editor
         var sprite = CreateWhiteSquareSprite();
         var tiles = CreateTiles(sprite);
         var terrainDatas = CreateTerrainDatas();
-        var infantryStats = CreateDivisionStats("InfantryStats", DivisionType.Infantry, 100f, 10f, 3f, 100);
-        var tankStats = CreateDivisionStats("TankStats", DivisionType.Tank, 200f, 20f, 3f, 200);
+        var infantryStats = CreateDivisionStats("InfantryStats", DivisionType.Infantry, 100f, 10f, 1.5f, 100);
+        var tankStats = CreateDivisionStats("TankStats", DivisionType.Tank, 200f, 20f, 1.5f, 200);
         var gameConfig = CreateGameConfig();
         var circleSprite = CreateCircleSprite();
         var ringSprite = CreateRingSprite();
+        var flagSprite = CreateFlagSprite();
         CreateCrackSprites();
         EnsureDivisionLayer();
         var prefab = CreateDivisionPrefab(circleSprite, ringSprite);
-        CreateGameScene(tiles);
+        CreateGameScene(tiles, circleSprite, squareSprite: sprite, flagSprite: flagSprite, ringSprite: ringSprite);
 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -218,6 +221,26 @@ public class SetupWizard : Editor
         return config;
     }
 
+    private static Sprite CreateFlagSprite()
+    {
+        return CreateSpriteAsset("Assets/Sprites/Flag.png", 32, 32, FilterMode.Bilinear, (tex) =>
+        {
+            for (int y = 0; y < 32; y++)
+                for (int x = 0; x < 32; x++)
+                    tex.SetPixel(x, y, Color.clear);
+
+            // Pole (vertical line at x=6)
+            for (int y = 0; y < 28; y++)
+                for (int px = 5; px <= 7; px++)
+                    tex.SetPixel(px, y, Color.white);
+
+            // Flag (rectangle 7-26, 16-28)
+            for (int y = 16; y < 28; y++)
+                for (int x = 7; x < 26; x++)
+                    tex.SetPixel(x, y, Color.white);
+        });
+    }
+
     private static void CreateCrackSprites()
     {
         // Light cracks
@@ -300,6 +323,7 @@ public class SetupWizard : Editor
 
         var go = new GameObject("Division");
         go.layer = divisionLayer;
+        go.transform.localScale = Vector3.one * 0.67f;
 
         // Visual container (for shake effect)
         var visualGo = new GameObject("Visual");
@@ -391,15 +415,14 @@ public class SetupWizard : Editor
         return prefab;
     }
 
-    private static void CreateGameScene(Tile[] tiles)
+    private static void CreateGameScene(Tile[] tiles, Sprite circleSprite, Sprite squareSprite, Sprite flagSprite, Sprite ringSprite)
     {
         var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
 
-        // Remove default directional light if exists
         var light = GameObject.Find("Directional Light");
         if (light != null) Object.DestroyImmediate(light);
 
-        // Camera setup
+        // Camera
         var cam = UnityEngine.Camera.main;
         cam.orthographic = true;
         cam.orthographicSize = 7f;
@@ -409,7 +432,7 @@ public class SetupWizard : Editor
 
         // Grid + Tilemap
         var gridGo = new GameObject("Grid");
-        var grid = gridGo.AddComponent<Grid>();
+        gridGo.AddComponent<Grid>();
 
         var tilemapGo = new GameObject("Terrain");
         tilemapGo.transform.SetParent(gridGo.transform);
@@ -417,24 +440,21 @@ public class SetupWizard : Editor
         var renderer = tilemapGo.AddComponent<TilemapRenderer>();
         renderer.sortingOrder = 0;
 
-        // Paint the map
         PaintTestMap(tilemap, tiles);
         tilemap.RefreshAllTiles();
 
-        // GameManager (loads GameConfig from Resources)
+        // Managers
         new GameObject("GameManager").AddComponent<GameManager>();
 
-        // MapManager (loads TerrainConfigs from Resources, needs tilemap ref)
         var mmGo = new GameObject("MapManager");
         var mm = mmGo.AddComponent<MapManager>();
         var mmSo = new SerializedObject(mm);
         mmSo.FindProperty("terrainTilemap").objectReferenceValue = tilemap;
         mmSo.ApplyModifiedProperties();
 
-        // DivisionSpawner (loads prefab + stats from Resources)
         new GameObject("DivisionSpawner").AddComponent<DivisionSpawner>();
+        new GameObject("EconomyManager").AddComponent<DotWars.Economy.EconomyManager>();
 
-        // SelectionManager
         var smGo = new GameObject("SelectionManager");
         var sm = smGo.AddComponent<SelectionManager>();
         var smSo = new SerializedObject(sm);
@@ -443,12 +463,67 @@ public class SetupWizard : Editor
             smSo.FindProperty("divisionLayer").intValue = 1 << divLayer;
         smSo.ApplyModifiedProperties();
 
+        // Economy HUD
+        new GameObject("EconomyHUD").AddComponent<DotWars.UI.EconomyHUD>();
+
+        // Cities with flags
+        CreateCityObject("PlayerCapital", new Vector3(5.5f, 10.5f, 0), 0, true, circleSprite, flagSprite, ringSprite);
+        CreateCityObject("BotCapital", new Vector3(24.5f, 10.5f, 0), 1, true, circleSprite, flagSprite, ringSprite);
+
+        // Ports with outlines
+        CreatePortObject("PortLeft", new Vector3(2.5f, 10.5f, 0), circleSprite, ringSprite);
+        CreatePortObject("PortRight", new Vector3(27.5f, 10.5f, 0), circleSprite, ringSprite);
+
         // GameSetup
-        var setupGo = new GameObject("GameSetup");
-        setupGo.AddComponent<GameSetup>();
+        new GameObject("GameSetup").AddComponent<GameSetup>();
 
         EditorSceneManager.SaveScene(scene, "Assets/Scenes/Game.unity");
-        Debug.Log("[DotWars] Game scene created at Assets/Scenes/Game.unity");
+    }
+
+    private static void CreateCityObject(string name, Vector3 pos, int owner, bool isCapital, Sprite circleSprite, Sprite flagSprite, Sprite ringSprite)
+    {
+        var go = new GameObject(name);
+        go.transform.position = pos;
+
+        // Outline ring
+        var outlineGo = new GameObject("Outline");
+        outlineGo.transform.SetParent(go.transform);
+        outlineGo.transform.localPosition = Vector3.zero;
+        outlineGo.transform.localScale = Vector3.one * 1.1f;
+        var outlineSr = outlineGo.AddComponent<SpriteRenderer>();
+        outlineSr.sprite = ringSprite;
+        outlineSr.sortingOrder = 2;
+
+        // Flag
+        var flagGo = new GameObject("Flag");
+        flagGo.transform.SetParent(go.transform);
+        flagGo.transform.localPosition = new Vector3(0.2f, 0.3f, 0);
+        flagGo.transform.localScale = Vector3.one * 0.7f;
+        var flagSr = flagGo.AddComponent<SpriteRenderer>();
+        flagSr.sprite = flagSprite;
+        flagSr.sortingOrder = 3;
+
+        var city = go.AddComponent<City>();
+        city.Initialize(owner, isCapital);
+    }
+
+    private static void CreatePortObject(string name, Vector3 pos, Sprite circleSprite, Sprite ringSprite)
+    {
+        var go = new GameObject(name);
+        go.transform.position = pos;
+
+        // Outline ring
+        var outlineGo = new GameObject("Outline");
+        outlineGo.transform.SetParent(go.transform);
+        outlineGo.transform.localPosition = Vector3.zero;
+        outlineGo.transform.localScale = Vector3.one * 1.1f;
+        var outlineSr = outlineGo.AddComponent<SpriteRenderer>();
+        outlineSr.sprite = ringSprite;
+        outlineSr.color = new Color(0.8f, 0.6f, 0.2f, 0.5f);
+        outlineSr.sortingOrder = 2;
+
+        var port = go.AddComponent<Port>();
+        port.Initialize();
     }
 
     private static void PaintTestMap(Tilemap tilemap, Tile[] tiles)

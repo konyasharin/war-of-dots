@@ -15,5 +15,5 @@ MonoBehaviour:
   divisionType: 1
   maxHP: 200
   damagePerSec: 20
-  baseSpeed: 6
+  baseSpeed: 3
   cost: 200
