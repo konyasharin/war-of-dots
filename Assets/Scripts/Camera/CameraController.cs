@@ -13,7 +13,7 @@ namespace DotWars.CameraSystem
         [Header("Zoom")]
         [SerializeField] private float zoomSpeed = 5f;
         [SerializeField] private float minZoom = 3f;
-        [SerializeField] private float maxZoom = 12f;
+        [SerializeField] private float maxZoom = 30f;
 
         private UnityEngine.Camera _camera;
         private Vector3 _dragOrigin;

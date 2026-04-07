@@ -7,8 +7,9 @@ namespace DotWars.Map
 {
     public class City : MonoBehaviour
     {
-        [SerializeField] private bool isCapital;
-        [SerializeField] private int ownerIndex; // 0=player, 1=bot, -1=neutral
+        private bool _isCapital;
+        private int _ownerIndex;
+        private Region _region;
 
         private SpriteRenderer _flagRenderer;
         private SpriteRenderer _outlineRenderer;
@@ -17,13 +18,14 @@ namespace DotWars.Map
         private static readonly Color BotFlagColor = new(1f, 0.25f, 0.25f);
         private static readonly Color NeutralFlagColor = new(0.7f, 0.7f, 0.7f);
 
-        public int OwnerIndex => ownerIndex;
-        public bool IsCapital => isCapital;
+        public int OwnerIndex => _ownerIndex;
+        public bool IsCapital => _isCapital;
+        public Region Region { get => _region; set => _region = value; }
 
         public void Initialize(int owner, bool capital)
         {
-            ownerIndex = owner;
-            isCapital = capital;
+            _ownerIndex = owner;
+            _isCapital = capital;
 
             _flagRenderer = transform.Find("Flag")?.GetComponent<SpriteRenderer>();
             _outlineRenderer = transform.Find("Outline")?.GetComponent<SpriteRenderer>();
@@ -35,14 +37,26 @@ namespace DotWars.Map
         {
             if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing) return;
 
-            // Generate income
-            var config = GameManager.Instance.Config;
-            float income = isCapital ? config.capitalIncomePerSec : config.cityIncomePerSec;
+            // Income ONLY when a friendly unit is present
+            bool hasFriendlyUnit = false;
+            var colliders = Physics2D.OverlapCircleAll(transform.position, 0.7f);
+            foreach (var col in colliders)
+            {
+                var div = col.GetComponent<Division>();
+                if (div != null && div.OwnerIndex == _ownerIndex)
+                {
+                    hasFriendlyUnit = true;
+                    break;
+                }
+            }
 
-            if (ownerIndex >= 0 && EconomyManager.Instance != null)
-                EconomyManager.Instance.AddGold(ownerIndex, income * Time.deltaTime);
+            if (hasFriendlyUnit && _ownerIndex >= 0 && EconomyManager.Instance != null)
+            {
+                var config = GameManager.Instance.Config;
+                float income = _isCapital ? config.capitalIncomePerSec : config.cityIncomePerSec;
+                EconomyManager.Instance.AddGold(_ownerIndex, income * Time.deltaTime);
+            }
 
-            // Check if a unit is capturing
             CheckCapture();
         }
 
@@ -52,27 +66,37 @@ namespace DotWars.Map
             foreach (var col in colliders)
             {
                 var div = col.GetComponent<Division>();
-                if (div == null || div.OwnerIndex == ownerIndex) continue;
+                if (div == null || div.OwnerIndex == _ownerIndex) continue;
 
-                // Enemy unit on city — capture instantly for now (capture timer later)
-                SetOwner(div.OwnerIndex);
+                // Capture city + entire region
+                int newOwner = div.OwnerIndex;
+                if (_region != null)
+                    RegionManager.Instance?.CaptureRegion(_region, newOwner);
+                else
+                    SetOwner(newOwner);
                 break;
             }
         }
 
         public void SetOwner(int newOwner)
         {
-            if (ownerIndex == newOwner) return;
-            ownerIndex = newOwner;
+            if (_ownerIndex == newOwner) return;
+            _ownerIndex = newOwner;
             UpdateVisuals();
             EventBus.OnCityCaptured?.Invoke(gameObject, newOwner);
+        }
+
+        public void SetOwnerSilent(int newOwner)
+        {
+            _ownerIndex = newOwner;
+            UpdateVisuals();
         }
 
         private void UpdateVisuals()
         {
             if (_flagRenderer != null)
             {
-                _flagRenderer.color = ownerIndex switch
+                _flagRenderer.color = _ownerIndex switch
                 {
                     0 => PlayerFlagColor,
                     1 => BotFlagColor,
@@ -82,7 +106,7 @@ namespace DotWars.Map
 
             if (_outlineRenderer != null)
             {
-                _outlineRenderer.color = ownerIndex switch
+                _outlineRenderer.color = _ownerIndex switch
                 {
                     0 => new Color(0.2f, 0.5f, 1f, 0.5f),
                     1 => new Color(1f, 0.25f, 0.25f, 0.5f),

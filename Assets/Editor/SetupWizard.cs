@@ -99,7 +99,7 @@ public class SetupWizard : Editor
 
     private static Sprite CreateRingSprite()
     {
-        return CreateSpriteAsset("Assets/Sprites/Ring.png", 64, 64, FilterMode.Bilinear, (tex) =>
+        return CreateSpriteAsset("Assets/Resources/Sprites/Ring.png", 64, 64, FilterMode.Bilinear, (tex) =>
         {
             float center = 32f;
             float outerR = 31f;
@@ -223,7 +223,7 @@ public class SetupWizard : Editor
 
     private static Sprite CreateFlagSprite()
     {
-        return CreateSpriteAsset("Assets/Sprites/Flag.png", 32, 32, FilterMode.Bilinear, (tex) =>
+        return CreateSpriteAsset("Assets/Resources/Sprites/Flag.png", 32, 32, FilterMode.Bilinear, (tex) =>
         {
             for (int y = 0; y < 32; y++)
                 for (int x = 0; x < 32; x++)
@@ -422,26 +422,39 @@ public class SetupWizard : Editor
         var light = GameObject.Find("Directional Light");
         if (light != null) Object.DestroyImmediate(light);
 
-        // Camera
         var cam = UnityEngine.Camera.main;
         cam.orthographic = true;
-        cam.orthographicSize = 7f;
-        cam.transform.position = new Vector3(15, 10, -10);
-        cam.backgroundColor = new Color(0.1f, 0.1f, 0.15f);
+        cam.orthographicSize = 12f;
+        cam.transform.position = new Vector3(50, 30, -10);
+        cam.backgroundColor = new Color(0.08f, 0.08f, 0.12f);
         cam.gameObject.AddComponent<CameraController>();
 
-        // Grid + Tilemap
+        // Grid + Tilemaps
         var gridGo = new GameObject("Grid");
         gridGo.AddComponent<Grid>();
 
         var tilemapGo = new GameObject("Terrain");
         tilemapGo.transform.SetParent(gridGo.transform);
         var tilemap = tilemapGo.AddComponent<Tilemap>();
-        var renderer = tilemapGo.AddComponent<TilemapRenderer>();
-        renderer.sortingOrder = 0;
+        tilemapGo.AddComponent<TilemapRenderer>().sortingOrder = 0;
 
-        PaintTestMap(tilemap, tiles);
+        // Overlay tilemap (region colors)
+        var overlayGo = new GameObject("Overlay");
+        overlayGo.transform.SetParent(gridGo.transform);
+        var overlayTilemap = overlayGo.AddComponent<Tilemap>();
+        overlayGo.AddComponent<TilemapRenderer>().sortingOrder = 1;
+
+        // Border tilemap (region borders)
+        var borderGo = new GameObject("Border");
+        borderGo.transform.SetParent(gridGo.transform);
+        var borderTilemap = borderGo.AddComponent<Tilemap>();
+        borderGo.AddComponent<TilemapRenderer>().sortingOrder = 2;
+
+        PaintLargeMap(tilemap, tiles);
         tilemap.RefreshAllTiles();
+
+        // Create overlay/border tile assets
+        CreateOverlayTiles(squareSprite);
 
         // Managers
         new GameObject("GameManager").AddComponent<GameManager>();
@@ -453,7 +466,15 @@ public class SetupWizard : Editor
         mmSo.ApplyModifiedProperties();
 
         new GameObject("DivisionSpawner").AddComponent<DivisionSpawner>();
-        new GameObject("EconomyManager").AddComponent<DotWars.Economy.EconomyManager>();
+        new GameObject("EconomyManager").AddComponent<EconomyManager>();
+
+        // RegionManager
+        var rmGo = new GameObject("RegionManager");
+        var rm = rmGo.AddComponent<RegionManager>();
+        var rmSo = new SerializedObject(rm);
+        rmSo.FindProperty("borderTilemap").objectReferenceValue = borderTilemap;
+        rmSo.FindProperty("overlayTilemap").objectReferenceValue = overlayTilemap;
+        rmSo.ApplyModifiedProperties();
 
         var smGo = new GameObject("SelectionManager");
         var sm = smGo.AddComponent<SelectionManager>();
@@ -463,21 +484,37 @@ public class SetupWizard : Editor
             smSo.FindProperty("divisionLayer").intValue = 1 << divLayer;
         smSo.ApplyModifiedProperties();
 
-        // Economy HUD
-        new GameObject("EconomyHUD").AddComponent<DotWars.UI.EconomyHUD>();
+        new GameObject("EconomyHUD").AddComponent<EconomyHUD>();
 
-        // Cities with flags
-        CreateCityObject("PlayerCapital", new Vector3(5.5f, 10.5f, 0), 0, true, circleSprite, flagSprite, ringSprite);
-        CreateCityObject("BotCapital", new Vector3(24.5f, 10.5f, 0), 1, true, circleSprite, flagSprite, ringSprite);
+        // Cities, ports, regions — see GameSetup for runtime creation
+        // (Region assignment needs MapManager to be initialized first)
 
-        // Ports with outlines
-        CreatePortObject("PortLeft", new Vector3(2.5f, 10.5f, 0), circleSprite, ringSprite);
-        CreatePortObject("PortRight", new Vector3(27.5f, 10.5f, 0), circleSprite, ringSprite);
-
-        // GameSetup
         new GameObject("GameSetup").AddComponent<GameSetup>();
 
         EditorSceneManager.SaveScene(scene, "Assets/Scenes/Game.unity");
+    }
+
+    private static void CreateOverlayTiles(Sprite squareSprite)
+    {
+        var overlayPath = "Assets/Resources/Tiles/Overlay.asset";
+        if (AssetDatabase.LoadAssetAtPath<Tile>(overlayPath) == null)
+        {
+            if (!AssetDatabase.IsValidFolder("Assets/Resources/Tiles"))
+                AssetDatabase.CreateFolder("Assets/Resources", "Tiles");
+            var t = ScriptableObject.CreateInstance<Tile>();
+            t.sprite = squareSprite;
+            t.color = Color.white;
+            AssetDatabase.CreateAsset(t, overlayPath);
+        }
+
+        var borderPath = "Assets/Resources/Tiles/Border.asset";
+        if (AssetDatabase.LoadAssetAtPath<Tile>(borderPath) == null)
+        {
+            var t = ScriptableObject.CreateInstance<Tile>();
+            t.sprite = squareSprite;
+            t.color = Color.white;
+            AssetDatabase.CreateAsset(t, borderPath);
+        }
     }
 
     private static void CreateCityObject(string name, Vector3 pos, int owner, bool isCapital, Sprite circleSprite, Sprite flagSprite, Sprite ringSprite)
@@ -526,9 +563,8 @@ public class SetupWizard : Editor
         port.Initialize();
     }
 
-    private static void PaintTestMap(Tilemap tilemap, Tile[] tiles)
+    private static void PaintLargeMap(Tilemap tilemap, Tile[] tiles)
     {
-        // tiles order: Plain=0, Forest=1, Mountain=2, Water=3, Bridge=4, Port=5, City=6
         var plain = tiles[0];
         var forest = tiles[1];
         var mountain = tiles[2];
@@ -537,77 +573,118 @@ public class SetupWizard : Editor
         var port = tiles[5];
         var city = tiles[6];
 
-        int w = 30, h = 20;
+        int w = 100, h = 60;
 
-        // Fill everything with water first
+        // Water everywhere
         for (int x = 0; x < w; x++)
             for (int y = 0; y < h; y++)
                 tilemap.SetTile(new Vector3Int(x, y, 0), water);
 
-        // Land mass (plain) — inset 2 tiles from edges
-        for (int x = 2; x < w - 2; x++)
-        {
-            for (int y = 2; y < h - 2; y++)
-            {
+        // Main landmass
+        for (int x = 3; x < w - 3; x++)
+            for (int y = 3; y < h - 3; y++)
                 tilemap.SetTile(new Vector3Int(x, y, 0), plain);
+
+        // Round corners
+        for (int r = 0; r < 3; r++)
+        {
+            for (int c = 0; c < 3 - r; c++)
+            {
+                int[][] corners = { new[]{3+c, 3+r}, new[]{3+c, h-4-r}, new[]{w-4-c, 3+r}, new[]{w-4-c, h-4-r} };
+                foreach (var p in corners)
+                    tilemap.SetTile(new Vector3Int(p[0], p[1], 0), water);
             }
         }
 
-        // Smooth coastline — round corners
-        int[,] waterCorners = {
-            {2,2}, {2,3}, {3,2},
-            {2,h-3}, {2,h-4}, {3,h-3},
-            {w-3,2}, {w-3,3}, {w-4,2},
-            {w-3,h-3}, {w-3,h-4}, {w-4,h-3}
-        };
-        for (int i = 0; i < waterCorners.GetLength(0); i++)
-            tilemap.SetTile(new Vector3Int(waterCorners[i, 0], waterCorners[i, 1], 0), water);
-
-        // River through the middle (vertical, x=14..15)
-        for (int y = 2; y < h - 2; y++)
+        // === Rivers ===
+        // Main vertical river at x=49-50
+        for (int y = 3; y < h - 3; y++)
         {
-            tilemap.SetTile(new Vector3Int(14, y, 0), water);
-            tilemap.SetTile(new Vector3Int(15, y, 0), water);
+            tilemap.SetTile(new Vector3Int(49, y, 0), water);
+            tilemap.SetTile(new Vector3Int(50, y, 0), water);
         }
 
-        // Bridges over the river
-        tilemap.SetTile(new Vector3Int(14, 7, 0), bridge);
-        tilemap.SetTile(new Vector3Int(15, 7, 0), bridge);
-        tilemap.SetTile(new Vector3Int(14, 13, 0), bridge);
-        tilemap.SetTile(new Vector3Int(15, 13, 0), bridge);
-
-        // Mountain range (top area)
-        int[] mtX = { 8, 9, 10, 20, 21, 22 };
-        foreach (int mx in mtX)
+        // Horizontal river (southern) at y=20, from x=20 to x=80
+        for (int x = 20; x <= 80; x++)
         {
-            tilemap.SetTile(new Vector3Int(mx, 15, 0), mountain);
-            tilemap.SetTile(new Vector3Int(mx, 16, 0), mountain);
+            tilemap.SetTile(new Vector3Int(x, 19, 0), water);
+            tilemap.SetTile(new Vector3Int(x, 20, 0), water);
         }
 
-        // Forests — left side clusters
-        int[,] forestL = {
-            {4,5}, {4,6}, {5,5}, {5,6}, {5,7}, {6,6},
-            {4,12}, {4,13}, {5,12}, {5,13}, {6,12}, {6,13},
-            {7,4}, {8,4}, {8,5},
-        };
-        for (int i = 0; i < forestL.GetLength(0); i++)
-            tilemap.SetTile(new Vector3Int(forestL[i, 0], forestL[i, 1], 0), forest);
+        // === Bridges ===
+        // Over main river
+        int[] bridgeY = { 12, 30, 45 };
+        foreach (int by in bridgeY)
+        {
+            tilemap.SetTile(new Vector3Int(49, by, 0), bridge);
+            tilemap.SetTile(new Vector3Int(50, by, 0), bridge);
+        }
+        // Over horizontal river
+        int[] bridgeX = { 30, 50, 70 };
+        foreach (int bx in bridgeX)
+        {
+            tilemap.SetTile(new Vector3Int(bx, 19, 0), bridge);
+            tilemap.SetTile(new Vector3Int(bx, 20, 0), bridge);
+        }
 
-        // Forests — right side clusters
-        int[,] forestR = {
-            {23,5}, {23,6}, {24,5}, {24,6}, {24,7}, {25,6},
-            {23,12}, {23,13}, {24,12}, {24,13}, {25,12}, {25,13},
-            {21,4}, {22,4}, {22,5},
-        };
-        for (int i = 0; i < forestR.GetLength(0); i++)
-            tilemap.SetTile(new Vector3Int(forestR[i, 0], forestR[i, 1], 0), forest);
+        // === Mountains ===
+        PaintMountainRange(tilemap, mountain, 20, 40, 30, 44, 3);
+        PaintMountainRange(tilemap, mountain, 70, 40, 80, 44, 3);
+        PaintMountainRange(tilemap, mountain, 35, 48, 65, 52, 2);
+        PaintMountainRange(tilemap, mountain, 15, 8, 25, 12, 2);
+        PaintMountainRange(tilemap, mountain, 75, 8, 85, 12, 2);
 
-        // Ports
-        tilemap.SetTile(new Vector3Int(2, 10, 0), port);
-        tilemap.SetTile(new Vector3Int(w - 3, 10, 0), port);
+        // === Forests ===
+        PaintForestCluster(tilemap, forest, 10, 25, 8);
+        PaintForestCluster(tilemap, forest, 30, 35, 10);
+        PaintForestCluster(tilemap, forest, 60, 35, 10);
+        PaintForestCluster(tilemap, forest, 85, 25, 8);
+        PaintForestCluster(tilemap, forest, 25, 10, 6);
+        PaintForestCluster(tilemap, forest, 70, 10, 6);
+        PaintForestCluster(tilemap, forest, 15, 45, 7);
+        PaintForestCluster(tilemap, forest, 80, 45, 7);
+        PaintForestCluster(tilemap, forest, 45, 8, 5);
+        PaintForestCluster(tilemap, forest, 55, 8, 5);
 
-        // Cities (capitals)
-        tilemap.SetTile(new Vector3Int(5, 10, 0), city);   // Player capital
-        tilemap.SetTile(new Vector3Int(24, 10, 0), city);  // Bot capital
+        // === Cities (tile markers) ===
+        // Player side (left)
+        tilemap.SetTile(new Vector3Int(15, 30, 0), city);  // Player capital
+        tilemap.SetTile(new Vector3Int(10, 15, 0), city);  // City 2
+        tilemap.SetTile(new Vector3Int(10, 45, 0), city);  // City 3
+        tilemap.SetTile(new Vector3Int(35, 30, 0), city);  // Center-left city
+
+        // Bot side (right)
+        tilemap.SetTile(new Vector3Int(84, 30, 0), city);  // Bot capital
+        tilemap.SetTile(new Vector3Int(89, 15, 0), city);  // City 2
+        tilemap.SetTile(new Vector3Int(89, 45, 0), city);  // City 3
+        tilemap.SetTile(new Vector3Int(64, 30, 0), city);  // Center-right city
+
+        // === Ports ===
+        tilemap.SetTile(new Vector3Int(3, 30, 0), port);
+        tilemap.SetTile(new Vector3Int(3, 15, 0), port);
+        tilemap.SetTile(new Vector3Int(96, 30, 0), port);
+        tilemap.SetTile(new Vector3Int(96, 45, 0), port);
+    }
+
+    private static void PaintMountainRange(Tilemap tilemap, Tile mt, int x1, int y1, int x2, int y2, int thickness)
+    {
+        for (int x = x1; x <= x2; x++)
+            for (int y = y1; y <= y1 + thickness - 1 && y <= y2; y++)
+                tilemap.SetTile(new Vector3Int(x, y, 0), mt);
+    }
+
+    private static void PaintForestCluster(Tilemap tilemap, Tile forest, int cx, int cy, int radius)
+    {
+        for (int dx = -radius; dx <= radius; dx++)
+        {
+            for (int dy = -radius; dy <= radius; dy++)
+            {
+                if (dx * dx + dy * dy > radius * radius) continue;
+                var pos = new Vector3Int(cx + dx, cy + dy, 0);
+                // Only paint on plain tiles
+                if (tilemap.GetTile(pos) != null && tilemap.GetTile(pos).name == "Plain")
+                    tilemap.SetTile(pos, forest);
+            }
+        }
     }
 }

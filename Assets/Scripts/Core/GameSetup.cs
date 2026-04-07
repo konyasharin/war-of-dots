@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using DotWars.Units;
 using DotWars.Map;
@@ -7,19 +8,148 @@ namespace DotWars.Core
 {
     public class GameSetup : MonoBehaviour
     {
+        // City definitions: gridX, gridY, ownerIndex, isCapital, regionRadius
+        private static readonly int[][] CityDefs =
+        {
+            new[] { 15, 30, 0, 1, 12 },  // Player capital
+            new[] { 10, 15, 0, 0, 10 },  // Player city 2
+            new[] { 10, 45, 0, 0, 10 },  // Player city 3
+            new[] { 35, 30, -1, 0, 8 },  // Neutral center-left
+            new[] { 84, 30, 1, 1, 12 },  // Bot capital
+            new[] { 89, 15, 1, 0, 10 },  // Bot city 2
+            new[] { 89, 45, 1, 0, 10 },  // Bot city 3
+            new[] { 64, 30, -1, 0, 8 },  // Neutral center-right
+        };
+
+        // Port definitions: gridX, gridY, linked to city index
+        private static readonly int[][] PortDefs =
+        {
+            new[] { 3, 30, 0 },
+            new[] { 3, 15, 1 },
+            new[] { 96, 30, 4 },
+            new[] { 96, 45, 5 },
+        };
+
+        private Sprite _flagSprite;
+        private Sprite _ringSprite;
+
         private void Start()
         {
             if (GameManager.Instance == null) return;
 
+            _flagSprite = Resources.Load<Sprite>("Sprites/Flag");
+            _ringSprite = Resources.Load<Sprite>("Sprites/Ring");
+
             GameManager.Instance.StartGame();
+
+            var regions = SetupCitiesAndRegions();
+            SetupPorts(regions);
+
+            RegionManager.Instance?.RefreshAllVisuals();
+
             SpawnStartingUnits();
 
+            // Center camera on player capital
             var map = MapManager.Instance;
             if (map != null)
             {
                 var cam = UnityEngine.Camera.main?.GetComponent<CameraController>();
                 if (cam != null)
-                    cam.CenterOn((map.WorldMin + map.WorldMax) * 0.5f);
+                    cam.CenterOn(map.GridToWorld(new Vector2Int(15, 30)));
+            }
+        }
+
+        private List<Region> SetupCitiesAndRegions()
+        {
+            var rm = RegionManager.Instance;
+            var map = MapManager.Instance;
+            var regions = new List<Region>();
+
+            foreach (var def in CityDefs)
+            {
+                int gx = def[0], gy = def[1], owner = def[2];
+                bool isCapital = def[3] == 1;
+                int radius = def[4];
+
+                // Create region
+                var region = rm?.CreateRegion(owner);
+
+                // Assign tiles to region (circle around city)
+                if (rm != null && map != null)
+                {
+                    for (int dx = -radius; dx <= radius; dx++)
+                    {
+                        for (int dy = -radius; dy <= radius; dy++)
+                        {
+                            if (dx * dx + dy * dy > radius * radius) continue;
+                            var tile = new Vector2Int(gx + dx, gy + dy);
+                            if (map.InBounds(tile) && rm.GetRegionAt(tile) == null)
+                                rm.AssignTile(tile, region);
+                        }
+                    }
+                }
+
+                // Create city object
+                var cityGo = new GameObject(isCapital ? (owner == 0 ? "PlayerCapital" : "BotCapital") : $"City_{gx}_{gy}");
+                cityGo.transform.position = map.GridToWorld(new Vector2Int(gx, gy));
+
+                // Outline
+                var outlineGo = new GameObject("Outline");
+                outlineGo.transform.SetParent(cityGo.transform);
+                outlineGo.transform.localPosition = Vector3.zero;
+                outlineGo.transform.localScale = Vector3.one * 1.1f;
+                var outlineSr = outlineGo.AddComponent<SpriteRenderer>();
+                outlineSr.sprite = _ringSprite;
+                outlineSr.sortingOrder = 2;
+
+                // Flag
+                var flagGo = new GameObject("Flag");
+                flagGo.transform.SetParent(cityGo.transform);
+                flagGo.transform.localPosition = new Vector3(0.2f, 0.3f, 0);
+                flagGo.transform.localScale = Vector3.one * 0.7f;
+                var flagSr = flagGo.AddComponent<SpriteRenderer>();
+                flagSr.sprite = _flagSprite;
+                flagSr.sortingOrder = 3;
+
+                var cityComp = cityGo.AddComponent<City>();
+                cityComp.Initialize(owner, isCapital);
+                cityComp.Region = region;
+                if (region != null) region.City = cityComp;
+
+                regions.Add(region);
+            }
+
+            return regions;
+        }
+
+        private void SetupPorts(List<Region> regions)
+        {
+            var map = MapManager.Instance;
+
+            foreach (var def in PortDefs)
+            {
+                int gx = def[0], gy = def[1], cityIdx = def[2];
+                var region = cityIdx < regions.Count ? regions[cityIdx] : null;
+
+                var portGo = new GameObject($"Port_{gx}_{gy}");
+                portGo.transform.position = map.GridToWorld(new Vector2Int(gx, gy));
+
+                var outlineGo = new GameObject("Outline");
+                outlineGo.transform.SetParent(portGo.transform);
+                outlineGo.transform.localPosition = Vector3.zero;
+                outlineGo.transform.localScale = Vector3.one * 1.1f;
+                var outlineSr = outlineGo.AddComponent<SpriteRenderer>();
+                outlineSr.sprite = _ringSprite;
+                outlineSr.sortingOrder = 2;
+
+                var portComp = portGo.AddComponent<Port>();
+                portComp.Initialize();
+
+                if (region != null)
+                {
+                    portComp.SetOwner(region.OwnerIndex);
+                    region.Ports.Add(portComp);
+                }
             }
         }
 
@@ -28,15 +158,17 @@ namespace DotWars.Core
             var spawner = DivisionSpawner.Instance;
             if (spawner == null || MapManager.Instance == null) return;
 
-            spawner.Spawn(DivisionType.Infantry, 0, new Vector2Int(5, 8));
-            spawner.Spawn(DivisionType.Infantry, 0, new Vector2Int(6, 10));
-            spawner.Spawn(DivisionType.Infantry, 0, new Vector2Int(5, 12));
-            spawner.Spawn(DivisionType.Tank, 0, new Vector2Int(7, 10));
+            // Player (blue) — near capital at (15, 30)
+            spawner.Spawn(DivisionType.Infantry, 0, new Vector2Int(14, 28));
+            spawner.Spawn(DivisionType.Infantry, 0, new Vector2Int(16, 28));
+            spawner.Spawn(DivisionType.Infantry, 0, new Vector2Int(15, 32));
+            spawner.Spawn(DivisionType.Tank, 0, new Vector2Int(17, 30));
 
-            spawner.Spawn(DivisionType.Infantry, 1, new Vector2Int(24, 8));
-            spawner.Spawn(DivisionType.Infantry, 1, new Vector2Int(23, 10));
-            spawner.Spawn(DivisionType.Infantry, 1, new Vector2Int(24, 12));
-            spawner.Spawn(DivisionType.Tank, 1, new Vector2Int(22, 10));
+            // Bot (red) — near capital at (84, 30)
+            spawner.Spawn(DivisionType.Infantry, 1, new Vector2Int(83, 28));
+            spawner.Spawn(DivisionType.Infantry, 1, new Vector2Int(85, 28));
+            spawner.Spawn(DivisionType.Infantry, 1, new Vector2Int(84, 32));
+            spawner.Spawn(DivisionType.Tank, 1, new Vector2Int(82, 30));
         }
     }
 }

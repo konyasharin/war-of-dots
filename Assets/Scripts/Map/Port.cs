@@ -8,57 +8,31 @@ namespace DotWars.Map
     public class Port : MonoBehaviour
     {
         private SpriteRenderer _outlineRenderer;
-        private float _conversionTimer;
-        private Division _convertingUnit;
+        private int _ownerIndex = -1;
+
+        public int OwnerIndex => _ownerIndex;
 
         public void Initialize()
         {
             _outlineRenderer = transform.Find("Outline")?.GetComponent<SpriteRenderer>();
+            UpdateVisuals();
         }
 
-        private void Update()
+        public void SetOwner(int newOwner)
         {
-            if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing) return;
+            _ownerIndex = newOwner;
+            UpdateVisuals();
+        }
 
-            if (_convertingUnit != null)
+        private void UpdateVisuals()
+        {
+            if (_outlineRenderer == null) return;
+            _outlineRenderer.color = _ownerIndex switch
             {
-                if (_convertingUnit == null || _convertingUnit.IsMoving)
-                {
-                    CancelConversion();
-                    return;
-                }
-
-                _conversionTimer -= Time.deltaTime;
-                if (_conversionTimer <= 0)
-                {
-                    CompleteConversion();
-                }
-            }
-        }
-
-        public bool StartConversion(Division unit)
-        {
-            if (_convertingUnit != null) return false;
-
-            var config = GameManager.Instance.Config;
-            if (!EconomyManager.Instance.SpendGold(unit.OwnerIndex, config.shipConversionCost))
-                return false;
-
-            _convertingUnit = unit;
-            _conversionTimer = config.shipConversionTime;
-            return true;
-        }
-
-        private void CompleteConversion()
-        {
-            // TODO: Replace unit with ship
-            _convertingUnit = null;
-        }
-
-        private void CancelConversion()
-        {
-            _convertingUnit = null;
-            _conversionTimer = 0;
+                0 => new Color(0.2f, 0.5f, 1f, 0.6f),
+                1 => new Color(1f, 0.25f, 0.25f, 0.6f),
+                _ => new Color(1f, 1f, 1f, 0.5f)
+            };
         }
     }
 }
