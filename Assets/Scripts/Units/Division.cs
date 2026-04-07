@@ -29,7 +29,8 @@ namespace DotWars.Units
 
         // Combat shake
         private float _shakeTimer;
-        private Vector3 _basePosition;
+        private Vector3 _shakeOffset;
+        private float _hpFillOffsetX;
 
         // Crack sprites
         private Sprite _crackLightSprite;
@@ -205,21 +206,28 @@ namespace DotWars.Units
 
         private void ProcessShake()
         {
+            // Shake only affects child visual objects, not root transform
+            var ringT = _selectionRing != null ? _selectionRing.transform.parent : null;
             if (_shakeTimer > 0)
             {
                 _shakeTimer -= Time.deltaTime;
                 float intensity = 0.05f;
-                var offset = new Vector3(
+                _shakeOffset = new Vector3(
                     Random.Range(-intensity, intensity),
                     Random.Range(-intensity, intensity),
                     0
                 );
-                _spriteRenderer.transform.localPosition = offset;
             }
             else
             {
-                _spriteRenderer.transform.localPosition = Vector3.zero;
+                _shakeOffset = Vector3.zero;
             }
+
+            // Apply shake to visual children only
+            if (_hpBarBg != null)
+                _hpBarBg.transform.localPosition = new Vector3(0, 0.55f, 0) + _shakeOffset;
+            if (_hpBarFill != null)
+                _hpBarFill.transform.localPosition = new Vector3(_hpFillOffsetX, 0.55f, 0) + _shakeOffset;
         }
 
         private void UpdatePathLine()
@@ -282,9 +290,8 @@ namespace DotWars.Units
             _hpBarFill.transform.localScale = scale;
 
             // Offset to keep left-aligned
-            var pos = _hpBarFill.transform.localPosition;
-            pos.x = -(1f - ratio) * 0.3f; // half of bar width
-            _hpBarFill.transform.localPosition = pos;
+            _hpFillOffsetX = -(1f - ratio) * 0.3f;
+            _hpBarFill.transform.localPosition = new Vector3(_hpFillOffsetX, 0.55f, 0);
 
             // Color: green -> yellow -> red
             Color barColor;
