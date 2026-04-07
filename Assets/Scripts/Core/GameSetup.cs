@@ -1,5 +1,8 @@
+using System.Collections;
 using UnityEngine;
 using DotWars.Units;
+using DotWars.Map;
+using DotWars.CameraSystem;
 
 namespace DotWars.Core
 {
@@ -15,6 +18,28 @@ namespace DotWars.Core
 
             GameManager.Instance.StartGame();
             SpawnStartingUnits();
+
+            // Center camera on map
+            var map = MapManager.Instance;
+            if (map != null)
+            {
+                var cam = UnityEngine.Camera.main?.GetComponent<CameraController>();
+                if (cam != null)
+                {
+                    var center = (map.WorldMin + map.WorldMax) * 0.5f;
+                    cam.CenterOn(center);
+                }
+            }
+
+            StartCoroutine(DebugPositionsNextFrame());
+        }
+
+        private IEnumerator DebugPositionsNextFrame()
+        {
+            yield return new WaitForFixedUpdate();
+            var divisions = FindObjectsByType<Division>(FindObjectsSortMode.None);
+            foreach (var d in divisions)
+                Debug.Log($"[AfterPhysics] {d.name} pos={d.transform.position}");
         }
 
         private void SpawnStartingUnits()
@@ -26,7 +51,7 @@ namespace DotWars.Core
                 return;
             }
 
-            var map = DotWars.Map.MapManager.Instance;
+            var map = MapManager.Instance;
             if (map == null)
             {
                 Debug.LogError("[GameSetup] MapManager.Instance is null!");

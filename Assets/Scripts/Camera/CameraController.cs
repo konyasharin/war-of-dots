@@ -13,15 +13,38 @@ namespace DotWars.CameraSystem
         [Header("Zoom")]
         [SerializeField] private float zoomSpeed = 5f;
         [SerializeField] private float minZoom = 3f;
-        [SerializeField] private float maxZoom = 15f;
+        [SerializeField] private float maxZoom = 12f;
 
         private UnityEngine.Camera _camera;
         private Vector3 _dragOrigin;
         private bool _isDragging;
+        private bool _boundsReady;
+        private float _mapMinX, _mapMaxX, _mapMinY, _mapMaxY;
 
         private void Awake()
         {
             _camera = GetComponent<UnityEngine.Camera>();
+        }
+
+        private void Start()
+        {
+            // Default zoom — small enough to pan freely
+            _camera.orthographicSize = 7f;
+            CacheMapBounds();
+        }
+
+        private void CacheMapBounds()
+        {
+            var map = MapManager.Instance;
+            if (map == null) return;
+
+            var wMin = map.WorldMin;
+            var wMax = map.WorldMax;
+            _mapMinX = wMin.x - 0.5f;
+            _mapMaxX = wMax.x + 0.5f;
+            _mapMinY = wMin.y - 0.5f;
+            _mapMaxY = wMax.y + 0.5f;
+            _boundsReady = true;
         }
 
         private void Update()
@@ -91,32 +114,36 @@ namespace DotWars.CameraSystem
 
         private void ClampToMap()
         {
-            var map = MapManager.Instance;
-            if (map == null) return;
-
-            var wMin = map.WorldMin;
-            var wMax = map.WorldMax;
-            float margin = 1f;
+            if (!_boundsReady)
+            {
+                CacheMapBounds();
+                if (!_boundsReady) return;
+            }
 
             float halfH = _camera.orthographicSize;
             float halfW = halfH * _camera.aspect;
 
-            float mapMinX = wMin.x - margin;
-            float mapMaxX = wMax.x + margin;
-            float mapMinY = wMin.y - margin;
-            float mapMaxY = wMax.y + margin;
+            // Camera edge must not go more than 2 tiles past map edge
+            float overflow = 2f;
 
-            float minX = mapMinX + halfW;
-            float maxX = mapMaxX - halfW;
-            float minY = mapMinY + halfH;
-            float maxY = mapMaxY - halfH;
+            float minX = _mapMinX - overflow + halfW;
+            float maxX = _mapMaxX + overflow - halfW;
+            float minY = _mapMinY - overflow + halfH;
+            float maxY = _mapMaxY + overflow - halfH;
 
-            if (minX > maxX) minX = maxX = (mapMinX + mapMaxX) * 0.5f;
-            if (minY > maxY) minY = maxY = (mapMinY + mapMaxY) * 0.5f;
+            if (minX > maxX) { float mid = (_mapMinX + _mapMaxX) * 0.5f; minX = maxX = mid; }
+            if (minY > maxY) { float mid = (_mapMinY + _mapMaxY) * 0.5f; minY = maxY = mid; }
 
             var pos = transform.position;
             pos.x = Mathf.Clamp(pos.x, minX, maxX);
             pos.y = Mathf.Clamp(pos.y, minY, maxY);
+            transform.position = pos;
+        }
+
+        public void CenterOn(Vector3 worldPos)
+        {
+            var pos = worldPos;
+            pos.z = transform.position.z;
             transform.position = pos;
         }
     }

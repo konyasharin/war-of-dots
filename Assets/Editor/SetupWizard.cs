@@ -395,7 +395,7 @@ public class SetupWizard : Editor
         // Camera setup
         var cam = UnityEngine.Camera.main;
         cam.orthographic = true;
-        cam.orthographicSize = 10f;
+        cam.orthographicSize = 7f;
         cam.transform.position = new Vector3(15, 10, -10);
         cam.backgroundColor = new Color(0.1f, 0.1f, 0.15f);
         cam.gameObject.AddComponent<CameraController>();
