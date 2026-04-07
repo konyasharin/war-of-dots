@@ -36,6 +36,7 @@ public class SetupWizard : Editor
         var circleSprite = CreateCircleSprite();
         var ringSprite = CreateRingSprite();
         var shipSprite = CreateShipSprite();
+        CreateShipOutlineSprite();
         var flagSprite = CreateFlagSprite();
         CreateCrackSprites();
         EnsureDivisionLayer();
@@ -219,6 +220,11 @@ public class SetupWizard : Editor
             config = ScriptableObject.CreateInstance<GameConfig>();
             AssetDatabase.CreateAsset(config, path);
         }
+        // Always force values
+        config.cityIncomePerSec = 1f;
+        config.capitalIncomePerSec = 2f;
+        config.startingGold = 300;
+        EditorUtility.SetDirty(config);
         return config;
     }
 
@@ -241,6 +247,32 @@ public class SetupWizard : Editor
 
                     float dist = adjustedDx * adjustedDx + dy * dy;
                     float alpha = Mathf.Clamp01(1f - dist + 0.02f);
+
+                    tex.SetPixel(x, y, new Color(1, 1, 1, alpha));
+                }
+            }
+        });
+    }
+
+    private static void CreateShipOutlineSprite()
+    {
+        CreateSpriteAsset("Assets/Resources/Sprites/ShipOutline.png", 64, 64, FilterMode.Bilinear, (tex) =>
+        {
+            float cx = 32f, cy = 32f;
+            for (int y = 0; y < 64; y++)
+            {
+                for (int x = 0; x < 64; x++)
+                {
+                    float dy = (y - cy) / 28f;
+                    float dx = (x - cx) / 16f;
+                    float pointFactor = Mathf.Max(1f - Mathf.Abs(dy) * 0.6f, 0.15f);
+                    float adjustedDx = dx / pointFactor;
+                    float dist = adjustedDx * adjustedDx + dy * dy;
+
+                    // Outline: ring between 0.85 and 1.15
+                    float inner = Mathf.Clamp01((dist - 0.75f) * 5f);
+                    float outer = Mathf.Clamp01((1.2f - dist) * 5f);
+                    float alpha = inner * outer;
 
                     tex.SetPixel(x, y, new Color(1, 1, 1, alpha));
                 }

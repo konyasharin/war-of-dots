@@ -17,6 +17,7 @@ namespace DotWars.UI
         private bool _stylesInit;
 
         public bool IsVisible => _visible;
+        public void Close() { _visible = false; }
 
         private void InitStyles()
         {
@@ -54,6 +55,10 @@ namespace DotWars.UI
                     {
                         _selectedCity = c;
                         _visible = true;
+                        // Close port panel
+                        var portPanel = FindAnyObjectByType<PortPanel>();
+                        if (portPanel != null && portPanel.IsVisible)
+                            portPanel.Close();
                         return;
                     }
                 }

@@ -38,6 +38,11 @@ namespace DotWars.Units
         private Sprite _crackHeavySprite;
         private Sprite _originalSprite;
         private Sprite _shipSprite;
+        private Sprite _shipOutlineSprite;
+        private Sprite _originalOutlineSprite;
+        private SpriteRenderer _outlineRenderer;
+        private float _landingTimer;
+        private bool _isLanding;
 
         private static readonly Color PlayerColor = new(0.2f, 0.5f, 1f);
         private static readonly Color BotColor = new(1f, 0.25f, 0.25f);
@@ -78,7 +83,15 @@ namespace DotWars.Units
             _crackLightSprite = Resources.Load<Sprite>("Sprites/CrackLight");
             _crackHeavySprite = Resources.Load<Sprite>("Sprites/CrackHeavy");
             _shipSprite = Resources.Load<Sprite>("Sprites/Ship");
+            _shipOutlineSprite = Resources.Load<Sprite>("Sprites/ShipOutline");
             _originalSprite = _spriteRenderer.sprite;
+
+            var outlineT = _visual != null ? _visual.Find("Outline") : transform.Find("Outline");
+            if (outlineT != null)
+            {
+                _outlineRenderer = outlineT.GetComponent<SpriteRenderer>();
+                _originalOutlineSprite = _outlineRenderer?.sprite;
+            }
 
             _spriteRenderer.color = ownerIndex == 0 ? PlayerColor : BotColor;
 
@@ -134,6 +147,7 @@ namespace DotWars.Units
                 ProcessMovement();
 
             ProcessCombat();
+            ProcessLanding();
             ProcessShake();
         }
 
@@ -190,13 +204,24 @@ namespace DotWars.Units
                 if (other == null || other.OwnerIndex == OwnerIndex) continue;
 
                 InCombat = true;
+
+                // Ship can't attack land units
+                if (IsShip && !other.IsShip)
+                {
+                    _shakeTimer = 0.1f;
+                    break;
+                }
+
                 float damage = Stats.damagePerSec * Time.deltaTime;
                 var terrain = MapManager.Instance.GetTerrainAtWorld(transform.position);
                 bool isTank = Stats.divisionType == DivisionType.Tank;
                 float dmgMod = terrain != null ? terrain.GetDamageModifier(isTank) : 1f;
                 float moraleMod = 1f + CurrentMorale / 200f;
 
-                other.TakeDamage(damage * dmgMod * moraleMod);
+                // Land unit deals x5 damage to ships
+                float shipPenalty = (!IsShip && other.IsShip) ? 5f : 1f;
+
+                other.TakeDamage(damage * dmgMod * moraleMod * shipPenalty);
                 _shakeTimer = 0.1f;
                 break;
             }
@@ -205,6 +230,51 @@ namespace DotWars.Units
             {
                 var config = GameManager.Instance.Config;
                 ModifyMorale(-config.moraleLossInCombat * Time.deltaTime);
+            }
+        }
+
+        private void ProcessLanding()
+        {
+            if (!IsShip || IsMoving) return;
+
+            // Check if ship is on land
+            var terrain = MapManager.Instance.GetTerrainAtWorld(transform.position);
+            if (terrain == null) return;
+
+            bool onLand = terrain.terrainType != TerrainType.Water && terrain.terrainType != TerrainType.Port;
+
+            if (onLand && !InCombat)
+            {
+                if (!_isLanding)
+                {
+                    _isLanding = true;
+                    _landingTimer = 10f;
+                }
+
+                _landingTimer -= Time.deltaTime;
+
+                // Update HP bar to show landing progress
+                if (_hpBarBg != null && _hpBarFill != null)
+                {
+                    float ratio = 1f - (_landingTimer / 10f);
+                    var scale = _hpBarFill.transform.localScale;
+                    scale.x = ratio * 0.6f;
+                    _hpBarFill.transform.localScale = scale;
+                    _hpBarFill.color = new Color(0.5f, 0.8f, 1f); // cyan for landing
+                    _hpBarFill.transform.localPosition = new Vector3(-(1f - ratio) * 0.3f, 0.55f, 0);
+                }
+
+                if (_landingTimer <= 0)
+                    ConvertToLand();
+            }
+            else
+            {
+                if (_isLanding)
+                {
+                    _isLanding = false;
+                    _landingTimer = 0;
+                    UpdateHPBar(); // Restore normal HP bar
+                }
             }
         }
 
@@ -339,8 +409,12 @@ namespace DotWars.Units
         {
             if (IsShip) return;
             IsShip = true;
+            _isLanding = false;
+            _landingTimer = 0;
             if (_spriteRenderer != null && _shipSprite != null)
                 _spriteRenderer.sprite = _shipSprite;
+            if (_outlineRenderer != null && _shipOutlineSprite != null)
+                _outlineRenderer.sprite = _shipOutlineSprite;
             if (_tankDot != null) _tankDot.enabled = false;
         }
 
@@ -348,9 +422,12 @@ namespace DotWars.Units
         {
             if (!IsShip) return;
             IsShip = false;
+            _isLanding = false;
+            _landingTimer = 0;
             if (_spriteRenderer != null && _originalSprite != null)
                 _spriteRenderer.sprite = _originalSprite;
-            // Restore tank dot if tank
+            if (_outlineRenderer != null && _originalOutlineSprite != null)
+                _outlineRenderer.sprite = _originalOutlineSprite;
             if (Stats.divisionType == DivisionType.Tank && _tankDot != null)
                 _tankDot.enabled = true;
         }

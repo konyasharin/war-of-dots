@@ -27,6 +27,7 @@ namespace DotWars.UI
         private const float NearbyRadius = 6f;
 
         public bool IsVisible => _visible;
+        public void Close() { _visible = false; }
 
         private void InitStyles()
         {
@@ -60,6 +61,8 @@ namespace DotWars.UI
                 {
                     if (p.OwnerIndex == 0 && Vector2.Distance(wp, p.transform.position) < 1f)
                     {
+                        var shopPanel = FindAnyObjectByType<ShopPanel>();
+                        if (shopPanel != null && shopPanel.IsVisible) shopPanel.Close();
                         OpenPort(p);
                         break;
                     }

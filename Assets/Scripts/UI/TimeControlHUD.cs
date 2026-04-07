@@ -14,10 +14,10 @@ namespace DotWars.UI
         {
             _speedBtnStyle = new GUIStyle(GUI.skin.button)
             {
-                fontSize = 16,
+                fontSize = 22,
                 fontStyle = FontStyle.Bold,
-                fixedHeight = 36,
-                fixedWidth = 48
+                fixedHeight = 44,
+                fixedWidth = 56
             };
 
             _speedBtnActiveStyle = new GUIStyle(_speedBtnStyle);
@@ -26,7 +26,7 @@ namespace DotWars.UI
 
             _labelStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 14,
+                fontSize = 20,
                 alignment = TextAnchor.MiddleCenter
             };
             _labelStyle.normal.textColor = new Color(0.7f, 0.7f, 0.7f);
@@ -64,18 +64,18 @@ namespace DotWars.UI
             var labels = gm.GetSpeedLabels();
             int current = gm.TimeScaleIndex;
 
-            float btnW = 48;
-            float gap = 4;
+            float btnW = 56;
+            float gap = 5;
             float totalW = labels.Length * btnW + (labels.Length - 1) * gap;
-            float h = 50;
+            float h = 60;
             float x = Screen.width - totalW - 15;
             float y = 15;
 
             // Background
             GUI.color = new Color(0, 0, 0, 0.6f);
-            GUI.DrawTexture(new Rect(x - 8, y - 5, totalW + 16, h + 25), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(x - 8, y - 5, totalW + 16, h + 40), Texture2D.whiteTexture);
             GUI.color = new Color(0.5f, 0.5f, 0.5f, 0.4f);
-            DrawBorder(new Rect(x - 8, y - 5, totalW + 16, h + 25), 1);
+            DrawBorder(new Rect(x - 8, y - 5, totalW + 16, h + 40), 1);
             GUI.color = Color.white;
 
             GUI.Label(new Rect(x - 8, y - 2, totalW + 16, 18), "Game Speed", _labelStyle);
@@ -106,9 +106,9 @@ namespace DotWars.UI
             // Keyboard hint
             GUI.color = Color.white;
             string hint = current == 0 ? "PAUSED — Space to resume" : $"Speed: {labels[current]} — Space to pause";
-            _labelStyle.fontSize = 11;
-            GUI.Label(new Rect(x - 8, by + 40, totalW + 16, 16), hint, _labelStyle);
-            _labelStyle.fontSize = 14;
+            _labelStyle.fontSize = 16;
+            GUI.Label(new Rect(x - 8, by + 48, totalW + 16, 22), hint, _labelStyle);
+            _labelStyle.fontSize = 20;
         }
 
         private void DrawBorder(Rect r, float t)

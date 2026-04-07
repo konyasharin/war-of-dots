@@ -30,7 +30,7 @@ namespace DotWars.UI
 
             _labelStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 16,
+                fontSize = 22,
                 alignment = TextAnchor.MiddleRight
             };
             _labelStyle.normal.textColor = new Color(0.7f, 0.7f, 0.7f);
