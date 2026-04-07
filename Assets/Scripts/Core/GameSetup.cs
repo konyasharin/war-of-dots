@@ -8,17 +8,17 @@ namespace DotWars.Core
 {
     public class GameSetup : MonoBehaviour
     {
-        // City definitions: gridX, gridY, ownerIndex, isCapital, regionRadius
+        // City definitions: gridX, gridY, ownerIndex, isCapital
         private static readonly int[][] CityDefs =
         {
-            new[] { 15, 30, 0, 1, 12 },  // Player capital
-            new[] { 10, 15, 0, 0, 10 },  // Player city 2
-            new[] { 10, 45, 0, 0, 10 },  // Player city 3
-            new[] { 35, 30, -1, 0, 8 },  // Neutral center-left
-            new[] { 84, 30, 1, 1, 12 },  // Bot capital
-            new[] { 89, 15, 1, 0, 10 },  // Bot city 2
-            new[] { 89, 45, 1, 0, 10 },  // Bot city 3
-            new[] { 64, 30, -1, 0, 8 },  // Neutral center-right
+            new[] { 15, 30, 0, 1 },  // Player capital
+            new[] { 10, 15, 0, 0 },  // Player city 2
+            new[] { 10, 45, 0, 0 },  // Player city 3
+            new[] { 35, 30, -1, 0 }, // Neutral center-left
+            new[] { 84, 30, 1, 1 },  // Bot capital
+            new[] { 89, 15, 1, 0 },  // Bot city 2
+            new[] { 89, 45, 1, 0 },  // Bot city 3
+            new[] { 64, 30, -1, 0 }, // Neutral center-right
         };
 
         // Port definitions: gridX, gridY, linked to city index
@@ -64,36 +64,20 @@ namespace DotWars.Core
             var rm = RegionManager.Instance;
             var map = MapManager.Instance;
             var regions = new List<Region>();
+            var cityCenters = new List<Vector2Int>();
 
+            // Create regions and city objects
             foreach (var def in CityDefs)
             {
                 int gx = def[0], gy = def[1], owner = def[2];
                 bool isCapital = def[3] == 1;
-                int radius = def[4];
 
-                // Create region
                 var region = rm?.CreateRegion(owner);
+                cityCenters.Add(new Vector2Int(gx, gy));
 
-                // Assign tiles to region (circle around city)
-                if (rm != null && map != null)
-                {
-                    for (int dx = -radius; dx <= radius; dx++)
-                    {
-                        for (int dy = -radius; dy <= radius; dy++)
-                        {
-                            if (dx * dx + dy * dy > radius * radius) continue;
-                            var tile = new Vector2Int(gx + dx, gy + dy);
-                            if (map.InBounds(tile) && rm.GetRegionAt(tile) == null)
-                                rm.AssignTile(tile, region);
-                        }
-                    }
-                }
-
-                // Create city object
                 var cityGo = new GameObject(isCapital ? (owner == 0 ? "PlayerCapital" : "BotCapital") : $"City_{gx}_{gy}");
                 cityGo.transform.position = map.GridToWorld(new Vector2Int(gx, gy));
 
-                // Outline
                 var outlineGo = new GameObject("Outline");
                 outlineGo.transform.SetParent(cityGo.transform);
                 outlineGo.transform.localPosition = Vector3.zero;
@@ -102,7 +86,6 @@ namespace DotWars.Core
                 outlineSr.sprite = _ringSprite;
                 outlineSr.sortingOrder = 2;
 
-                // Flag
                 var flagGo = new GameObject("Flag");
                 flagGo.transform.SetParent(cityGo.transform);
                 flagGo.transform.localPosition = new Vector3(0.2f, 0.3f, 0);
@@ -117,6 +100,33 @@ namespace DotWars.Core
                 if (region != null) region.City = cityComp;
 
                 regions.Add(region);
+            }
+
+            // Voronoi: assign EVERY tile to nearest city's region
+            if (rm != null && map != null)
+            {
+                var bounds = map.Bounds;
+                for (int x = bounds.xMin; x < bounds.xMax; x++)
+                {
+                    for (int y = bounds.yMin; y < bounds.yMax; y++)
+                    {
+                        var tile = new Vector2Int(x, y);
+                        float minDist = float.MaxValue;
+                        int bestIdx = 0;
+
+                        for (int i = 0; i < cityCenters.Count; i++)
+                        {
+                            float dist = (cityCenters[i] - tile).sqrMagnitude;
+                            if (dist < minDist)
+                            {
+                                minDist = dist;
+                                bestIdx = i;
+                            }
+                        }
+
+                        rm.AssignTile(tile, regions[bestIdx]);
+                    }
+                }
             }
 
             return regions;

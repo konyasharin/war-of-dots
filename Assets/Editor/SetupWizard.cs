@@ -574,90 +574,96 @@ public class SetupWizard : Editor
         var city = tiles[6];
 
         int w = 100, h = 60;
+        float seed = 42.7f;
 
         // Water everywhere
         for (int x = 0; x < w; x++)
             for (int y = 0; y < h; y++)
                 tilemap.SetTile(new Vector3Int(x, y, 0), water);
 
-        // Main landmass
-        for (int x = 3; x < w - 3; x++)
-            for (int y = 3; y < h - 3; y++)
-                tilemap.SetTile(new Vector3Int(x, y, 0), plain);
-
-        // Round corners
-        for (int r = 0; r < 3; r++)
+        // Landmass with organic coastline (Perlin noise)
+        for (int x = 0; x < w; x++)
         {
-            for (int c = 0; c < 3 - r; c++)
+            for (int y = 0; y < h; y++)
             {
-                int[][] corners = { new[]{3+c, 3+r}, new[]{3+c, h-4-r}, new[]{w-4-c, 3+r}, new[]{w-4-c, h-4-r} };
-                foreach (var p in corners)
-                    tilemap.SetTile(new Vector3Int(p[0], p[1], 0), water);
+                float edgeDist = Mathf.Min(x, y, w - 1 - x, h - 1 - y);
+                float noise = Mathf.PerlinNoise(x * 0.08f + seed, y * 0.08f + seed);
+                float threshold = 3f + noise * 2.5f;
+                if (edgeDist > threshold)
+                    tilemap.SetTile(new Vector3Int(x, y, 0), plain);
             }
         }
 
-        // === Rivers ===
-        // Main vertical river at x=49-50
-        for (int y = 3; y < h - 3; y++)
+        // === Rivers (with slight winding) ===
+        // Vertical river ~x=49-50
+        for (int y = 0; y < h; y++)
         {
-            tilemap.SetTile(new Vector3Int(49, y, 0), water);
-            tilemap.SetTile(new Vector3Int(50, y, 0), water);
+            int rx = 49 + Mathf.RoundToInt(Mathf.PerlinNoise(y * 0.15f, seed + 10) * 2f - 1f);
+            tilemap.SetTile(new Vector3Int(rx, y, 0), water);
+            tilemap.SetTile(new Vector3Int(rx + 1, y, 0), water);
         }
 
-        // Horizontal river (southern) at y=20, from x=20 to x=80
-        for (int x = 20; x <= 80; x++)
+        // Horizontal river ~y=20, from x=15 to x=85
+        for (int x = 15; x <= 85; x++)
         {
-            tilemap.SetTile(new Vector3Int(x, 19, 0), water);
-            tilemap.SetTile(new Vector3Int(x, 20, 0), water);
+            int ry = 20 + Mathf.RoundToInt(Mathf.PerlinNoise(x * 0.12f, seed + 20) * 2f - 1f);
+            tilemap.SetTile(new Vector3Int(x, ry, 0), water);
+            tilemap.SetTile(new Vector3Int(x, ry + 1, 0), water);
         }
 
-        // === Bridges ===
-        // Over main river
-        int[] bridgeY = { 12, 30, 45 };
-        foreach (int by in bridgeY)
+        // === Bridges === (placed where rivers are straight, connecting land)
+        // Over vertical river
+        int[][] vBridges = { new[]{49, 12}, new[]{49, 30}, new[]{49, 45} };
+        foreach (var b in vBridges)
         {
-            tilemap.SetTile(new Vector3Int(49, by, 0), bridge);
-            tilemap.SetTile(new Vector3Int(50, by, 0), bridge);
-        }
-        // Over horizontal river
-        int[] bridgeX = { 30, 50, 70 };
-        foreach (int bx in bridgeX)
-        {
-            tilemap.SetTile(new Vector3Int(bx, 19, 0), bridge);
-            tilemap.SetTile(new Vector3Int(bx, 20, 0), bridge);
+            // Find actual river x at this y
+            int rx = 49 + Mathf.RoundToInt(Mathf.PerlinNoise(b[1] * 0.15f, seed + 10) * 2f - 1f);
+            tilemap.SetTile(new Vector3Int(rx, b[1], 0), bridge);
+            tilemap.SetTile(new Vector3Int(rx + 1, b[1], 0), bridge);
         }
 
-        // === Mountains ===
-        PaintMountainRange(tilemap, mountain, 20, 40, 30, 44, 3);
-        PaintMountainRange(tilemap, mountain, 70, 40, 80, 44, 3);
-        PaintMountainRange(tilemap, mountain, 35, 48, 65, 52, 2);
-        PaintMountainRange(tilemap, mountain, 15, 8, 25, 12, 2);
-        PaintMountainRange(tilemap, mountain, 75, 8, 85, 12, 2);
+        // Over horizontal river (avoid vertical river intersection)
+        int[] hBridgeX = { 28, 72 };
+        foreach (int bx in hBridgeX)
+        {
+            int ry = 20 + Mathf.RoundToInt(Mathf.PerlinNoise(bx * 0.12f, seed + 20) * 2f - 1f);
+            tilemap.SetTile(new Vector3Int(bx, ry, 0), bridge);
+            tilemap.SetTile(new Vector3Int(bx, ry + 1, 0), bridge);
+        }
 
-        // === Forests ===
-        PaintForestCluster(tilemap, forest, 10, 25, 8);
-        PaintForestCluster(tilemap, forest, 30, 35, 10);
-        PaintForestCluster(tilemap, forest, 60, 35, 10);
-        PaintForestCluster(tilemap, forest, 85, 25, 8);
-        PaintForestCluster(tilemap, forest, 25, 10, 6);
-        PaintForestCluster(tilemap, forest, 70, 10, 6);
-        PaintForestCluster(tilemap, forest, 15, 45, 7);
-        PaintForestCluster(tilemap, forest, 80, 45, 7);
-        PaintForestCluster(tilemap, forest, 45, 8, 5);
-        PaintForestCluster(tilemap, forest, 55, 8, 5);
+        // === Mountains (organic, noise-based) ===
+        PaintNoisyMountains(tilemap, mountain, 18, 38, 32, 46, seed + 100);
+        PaintNoisyMountains(tilemap, mountain, 68, 38, 82, 46, seed + 101);
+        PaintNoisyMountains(tilemap, mountain, 33, 46, 67, 54, seed + 102);
+        PaintNoisyMountains(tilemap, mountain, 13, 6, 27, 14, seed + 103);
+        PaintNoisyMountains(tilemap, mountain, 73, 6, 87, 14, seed + 104);
 
-        // === Cities (tile markers) ===
-        // Player side (left)
-        tilemap.SetTile(new Vector3Int(15, 30, 0), city);  // Player capital
-        tilemap.SetTile(new Vector3Int(10, 15, 0), city);  // City 2
-        tilemap.SetTile(new Vector3Int(10, 45, 0), city);  // City 3
-        tilemap.SetTile(new Vector3Int(35, 30, 0), city);  // Center-left city
+        // === Forests (noise-based, irregular edges) ===
+        PaintNoisyForest(tilemap, forest, 8, 22, 9, seed + 200);
+        PaintNoisyForest(tilemap, forest, 28, 33, 11, seed + 201);
+        PaintNoisyForest(tilemap, forest, 62, 33, 11, seed + 202);
+        PaintNoisyForest(tilemap, forest, 87, 22, 9, seed + 203);
+        PaintNoisyForest(tilemap, forest, 23, 8, 7, seed + 204);
+        PaintNoisyForest(tilemap, forest, 72, 8, 7, seed + 205);
+        PaintNoisyForest(tilemap, forest, 13, 43, 8, seed + 206);
+        PaintNoisyForest(tilemap, forest, 82, 43, 8, seed + 207);
+        PaintNoisyForest(tilemap, forest, 43, 6, 6, seed + 208);
+        PaintNoisyForest(tilemap, forest, 57, 6, 6, seed + 209);
+        // Extra scattered forest patches
+        PaintNoisyForest(tilemap, forest, 38, 15, 5, seed + 210);
+        PaintNoisyForest(tilemap, forest, 62, 15, 5, seed + 211);
+        PaintNoisyForest(tilemap, forest, 20, 52, 4, seed + 212);
+        PaintNoisyForest(tilemap, forest, 78, 52, 4, seed + 213);
 
-        // Bot side (right)
-        tilemap.SetTile(new Vector3Int(84, 30, 0), city);  // Bot capital
-        tilemap.SetTile(new Vector3Int(89, 15, 0), city);  // City 2
-        tilemap.SetTile(new Vector3Int(89, 45, 0), city);  // City 3
-        tilemap.SetTile(new Vector3Int(64, 30, 0), city);  // Center-right city
+        // === Cities ===
+        tilemap.SetTile(new Vector3Int(15, 30, 0), city);
+        tilemap.SetTile(new Vector3Int(10, 15, 0), city);
+        tilemap.SetTile(new Vector3Int(10, 45, 0), city);
+        tilemap.SetTile(new Vector3Int(35, 30, 0), city);
+        tilemap.SetTile(new Vector3Int(84, 30, 0), city);
+        tilemap.SetTile(new Vector3Int(89, 15, 0), city);
+        tilemap.SetTile(new Vector3Int(89, 45, 0), city);
+        tilemap.SetTile(new Vector3Int(64, 30, 0), city);
 
         // === Ports ===
         tilemap.SetTile(new Vector3Int(3, 30, 0), port);
@@ -666,23 +672,44 @@ public class SetupWizard : Editor
         tilemap.SetTile(new Vector3Int(96, 45, 0), port);
     }
 
-    private static void PaintMountainRange(Tilemap tilemap, Tile mt, int x1, int y1, int x2, int y2, int thickness)
+    private static void PaintNoisyMountains(Tilemap tilemap, Tile mt, int x1, int y1, int x2, int y2, float seed)
     {
-        for (int x = x1; x <= x2; x++)
-            for (int y = y1; y <= y1 + thickness - 1 && y <= y2; y++)
-                tilemap.SetTile(new Vector3Int(x, y, 0), mt);
+        float cx = (x1 + x2) * 0.5f, cy = (y1 + y2) * 0.5f;
+        float rx = (x2 - x1) * 0.5f, ry = (y2 - y1) * 0.5f;
+
+        for (int x = x1 - 2; x <= x2 + 2; x++)
+        {
+            for (int y = y1 - 2; y <= y2 + 2; y++)
+            {
+                float dx = (x - cx) / rx;
+                float dy = (y - cy) / ry;
+                float dist = dx * dx + dy * dy;
+                float noise = Mathf.PerlinNoise(x * 0.2f + seed, y * 0.2f + seed);
+                if (dist < 0.7f + noise * 0.5f)
+                {
+                    var pos = new Vector3Int(x, y, 0);
+                    var existing = tilemap.GetTile(pos);
+                    if (existing != null && existing.name == "Plain")
+                        tilemap.SetTile(pos, mt);
+                }
+            }
+        }
     }
 
-    private static void PaintForestCluster(Tilemap tilemap, Tile forest, int cx, int cy, int radius)
+    private static void PaintNoisyForest(Tilemap tilemap, Tile forest, int cx, int cy, int radius, float seed)
     {
-        for (int dx = -radius; dx <= radius; dx++)
+        for (int dx = -radius - 2; dx <= radius + 2; dx++)
         {
-            for (int dy = -radius; dy <= radius; dy++)
+            for (int dy = -radius - 2; dy <= radius + 2; dy++)
             {
-                if (dx * dx + dy * dy > radius * radius) continue;
+                float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                float noise = Mathf.PerlinNoise((cx + dx) * 0.25f + seed, (cy + dy) * 0.25f + seed);
+                float threshold = radius * (0.6f + noise * 0.6f);
+                if (dist > threshold) continue;
+
                 var pos = new Vector3Int(cx + dx, cy + dy, 0);
-                // Only paint on plain tiles
-                if (tilemap.GetTile(pos) != null && tilemap.GetTile(pos).name == "Plain")
+                var existing = tilemap.GetTile(pos);
+                if (existing != null && existing.name == "Plain")
                     tilemap.SetTile(pos, forest);
             }
         }
