@@ -31,6 +31,15 @@ namespace DotWars.Units
             CurrentHP = stats.maxHP;
             CurrentMorale = GameManager.Instance.Config.maxMorale;
 
+            if (spriteRenderer == null)
+                spriteRenderer = GetComponent<SpriteRenderer>();
+            if (selectionRing == null)
+            {
+                var ringTransform = transform.Find("SelectionRing");
+                if (ringTransform != null)
+                    selectionRing = ringTransform.GetComponent<SpriteRenderer>();
+            }
+
             spriteRenderer.color = ownerIndex == 0 ? PlayerColor : BotColor;
             transform.position = MapManager.Instance.GridToWorld(gridPos);
 
