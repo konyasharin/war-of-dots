@@ -9,6 +9,8 @@ namespace DotWars.UI
     public class ShopPanel : MonoBehaviour
     {
         private bool _visible;
+        private float _slideT;
+        private float _targetSlide;
         private City _selectedCity;
         private GUIStyle _btnStyle;
         private GUIStyle _headerStyle;
@@ -17,7 +19,7 @@ namespace DotWars.UI
         private bool _stylesInit;
 
         public bool IsVisible => _visible;
-        public void Close() { _visible = false; }
+        public void Close() { _targetSlide = 0; }
 
         private void InitStyles()
         {
@@ -32,6 +34,10 @@ namespace DotWars.UI
 
         private void Update()
         {
+            // Animate slide
+            _slideT = Mathf.MoveTowards(_slideT, _targetSlide, Time.unscaledDeltaTime * 5f);
+            if (_targetSlide == 0 && _slideT == 0) _visible = false;
+
             if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing) return;
 
             if (Input.GetMouseButtonDown(0) && !_visible)
@@ -40,12 +46,11 @@ namespace DotWars.UI
                 Vector3 wp = cam.ScreenToWorldPoint(Input.mousePosition);
                 wp.z = 0;
 
-                // Check if clicking on a port (PortPanel handles that)
                 var ports = FindObjectsByType<Port>(FindObjectsSortMode.None);
                 foreach (var p in ports)
                 {
                     if (p.OwnerIndex == 0 && Vector2.Distance(wp, p.transform.position) < 1f)
-                        return; // Let PortPanel handle it
+                        return;
                 }
 
                 var cities = FindObjectsByType<City>(FindObjectsSortMode.None);
@@ -55,33 +60,31 @@ namespace DotWars.UI
                     {
                         _selectedCity = c;
                         _visible = true;
-                        // Close port panel
+                        _targetSlide = 1;
                         var portPanel = FindAnyObjectByType<PortPanel>();
-                        if (portPanel != null && portPanel.IsVisible)
-                            portPanel.Close();
+                        if (portPanel != null && portPanel.IsVisible) portPanel.Close();
                         return;
                     }
                 }
             }
 
-            if (Input.GetKeyDown(KeyCode.Escape)) _visible = false;
+            if (Input.GetKeyDown(KeyCode.Escape) && _visible) _targetSlide = 0;
         }
 
         private void OnGUI()
         {
-            if (!_visible || _selectedCity == null) return;
+            if (!_visible || _selectedCity == null || _slideT <= 0) return;
             if (!_stylesInit) InitStyles();
 
             float w = Screen.width * 0.2f;
             float h = Screen.height;
-            float x = 0;
+            float x = -w * (1f - _slideT); // slide from left
             float y = 0;
 
-            // Background
             GUI.color = new Color(0.05f, 0.05f, 0.1f, 0.92f);
             GUI.DrawTexture(new Rect(x, y, w, h), Texture2D.whiteTexture);
             GUI.color = new Color(0.3f, 0.5f, 1f, 0.5f);
-            GUI.DrawTexture(new Rect(w - 2, 0, 2, h), Texture2D.whiteTexture); // right edge
+            GUI.DrawTexture(new Rect(x + w - 2, 0, 2, h), Texture2D.whiteTexture);
             GUI.color = Color.white;
 
             float pad = 20;
@@ -93,9 +96,9 @@ namespace DotWars.UI
             cy += 50;
 
             // Close
-            if (GUI.Button(new Rect(w - 45, 10, 35, 30), "X", _closeBtnStyle))
+            if (GUI.Button(new Rect(x + w - 45, 10, 35, 30), "X", _closeBtnStyle))
             {
-                _visible = false;
+                _targetSlide = 0;
                 return;
             }
 

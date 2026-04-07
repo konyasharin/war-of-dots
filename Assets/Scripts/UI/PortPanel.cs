@@ -14,6 +14,8 @@ namespace DotWars.UI
         private List<bool> _unitSelected = new();
         private string _errorMessage;
         private float _errorTimer;
+        private float _slideT;
+        private float _targetSlide;
 
         private GUIStyle _btnStyle;
         private GUIStyle _headerStyle;
@@ -27,7 +29,7 @@ namespace DotWars.UI
         private const float NearbyRadius = 6f;
 
         public bool IsVisible => _visible;
-        public void Close() { _visible = false; }
+        public void Close() { _targetSlide = 0; }
 
         private void InitStyles()
         {
@@ -48,6 +50,8 @@ namespace DotWars.UI
         private void Update()
         {
             if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing) return;
+            _slideT = Mathf.MoveTowards(_slideT, _targetSlide, Time.unscaledDeltaTime * 5f);
+            if (_targetSlide == 0 && _slideT == 0) _visible = false;
             if (_errorTimer > 0) _errorTimer -= Time.unscaledDeltaTime;
 
             if (Input.GetMouseButtonDown(0) && !_visible)
@@ -69,13 +73,14 @@ namespace DotWars.UI
                 }
             }
 
-            if (Input.GetKeyDown(KeyCode.Escape)) _visible = false;
+            if (Input.GetKeyDown(KeyCode.Escape) && _visible) _targetSlide = 0;
         }
 
         private void OpenPort(Port port)
         {
             _selectedPort = port;
             _visible = true;
+            _targetSlide = 1;
             _nearbyUnits.Clear();
             _unitSelected.Clear();
 
@@ -93,50 +98,50 @@ namespace DotWars.UI
 
         private void OnGUI()
         {
-            if (!_visible || _selectedPort == null) return;
+            if (!_visible || _selectedPort == null || _slideT <= 0) return;
             if (!_stylesInit) InitStyles();
 
             float w = Screen.width * 0.2f;
             float h = Screen.height;
+            float x = -w * (1f - _slideT);
 
-            // Background
             GUI.color = new Color(0.05f, 0.05f, 0.1f, 0.92f);
-            GUI.DrawTexture(new Rect(0, 0, w, h), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(x, 0, w, h), Texture2D.whiteTexture);
             GUI.color = new Color(0.8f, 0.6f, 0.2f, 0.5f);
-            GUI.DrawTexture(new Rect(w - 2, 0, 2, h), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(x + w - 2, 0, 2, h), Texture2D.whiteTexture);
             GUI.color = Color.white;
 
             float pad = 20;
             float cy = pad;
 
-            GUI.Label(new Rect(pad, cy, w - pad * 2, 40), "PORT", _headerStyle);
-            if (GUI.Button(new Rect(w - 45, 10, 35, 30), "X", _closeBtnStyle))
+            GUI.Label(new Rect(x + pad, cy, w - pad * 2, 40), "PORT", _headerStyle);
+            if (GUI.Button(new Rect(x + w - 45, 10, 35, 30), "X", _closeBtnStyle))
             {
-                _visible = false;
+                _targetSlide = 0;
                 return;
             }
             cy += 50;
 
-            GUI.Label(new Rect(pad, cy, w - pad * 2, 28), "Board Ships", _infoStyle);
+            GUI.Label(new Rect(x + pad, cy, w - pad * 2, 28), "Board Ships", _infoStyle);
             cy += 35;
 
             GUI.color = new Color(0.4f, 0.4f, 0.5f, 0.4f);
-            GUI.DrawTexture(new Rect(pad, cy, w - pad * 2, 1), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(x + pad, cy, w - pad * 2, 1), Texture2D.whiteTexture);
             GUI.color = Color.white;
             cy += 15;
 
             if (_nearbyUnits.Count == 0)
             {
-                GUI.Label(new Rect(pad, cy, w - pad * 2, 30), "No land units nearby", _infoStyle);
+                GUI.Label(new Rect(x + pad, cy, w - pad * 2, 30), "No land units nearby", _infoStyle);
             }
             else
             {
-                GUI.Label(new Rect(pad, cy, w - pad * 2, 25), $"Nearby units ({_nearbyUnits.Count}):", _infoStyle);
+                GUI.Label(new Rect(x + pad, cy, w - pad * 2, 25), $"Nearby units ({_nearbyUnits.Count}):", _infoStyle);
                 cy += 30;
 
                 float scrollH = _nearbyUnits.Count * 32;
                 float viewH = Mathf.Min(scrollH, h * 0.4f);
-                _scrollPos = GUI.BeginScrollView(new Rect(pad, cy, w - pad * 2, viewH), _scrollPos, new Rect(0, 0, w - pad * 3, scrollH));
+                _scrollPos = GUI.BeginScrollView(new Rect(x + pad, cy, w - pad * 2, viewH), _scrollPos, new Rect(0, 0, w - pad * 3, scrollH));
 
                 for (int i = 0; i < _nearbyUnits.Count; i++)
                 {
@@ -152,13 +157,13 @@ namespace DotWars.UI
                 for (int i = 0; i < _unitSelected.Count; i++)
                     if (_unitSelected[i]) count++;
 
-                if (GUI.Button(new Rect(pad, cy, w - pad * 2, 50), $"Board {count} units", _btnStyle))
+                if (GUI.Button(new Rect(x + pad, cy, w - pad * 2, 50), $"Board {count} units", _btnStyle))
                     BoardSelectedUnits();
                 cy += 60;
             }
 
             if (_errorTimer > 0 && !string.IsNullOrEmpty(_errorMessage))
-                GUI.Label(new Rect(pad, cy, w - pad * 2, 25), _errorMessage, _errorStyle);
+                GUI.Label(new Rect(x + pad, cy, w - pad * 2, 25), _errorMessage, _errorStyle);
         }
 
         private void BoardSelectedUnits()

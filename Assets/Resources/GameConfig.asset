@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: GameConfig
   m_EditorClassIdentifier: Assembly-CSharp::DotWars.Core.GameConfig
   startingGold: 300
-  cityIncomePerSec: 10
-  capitalIncomePerSec: 20
+  cityIncomePerSec: 1
+  capitalIncomePerSec: 2
   captureTime: 5
   victoryTerritoryPercent: 0.8
   detectionRadius: 1.5

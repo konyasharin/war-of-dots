@@ -84,13 +84,30 @@ namespace DotWars.Map
 
             if (isShip)
             {
-                // Ships can traverse water and port tiles
-                return terrain.terrainType == TerrainType.Water || terrain.terrainType == TerrainType.Port;
+                if (terrain.terrainType == TerrainType.Water || terrain.terrainType == TerrainType.Port)
+                    return true;
+                // Allow coastal land tiles for beaching
+                if (terrain.isPassable && HasAdjacentWater(map, pos))
+                    return true;
+                return false;
             }
             else
             {
                 return terrain.isPassable;
             }
+        }
+
+        private static bool HasAdjacentWater(MapManager map, Vector2Int pos)
+        {
+            Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+            foreach (var d in dirs)
+            {
+                var neighbor = pos + d;
+                var t = map.GetTerrainAt(neighbor);
+                if (t != null && t.terrainType == TerrainType.Water)
+                    return true;
+            }
+            return false;
         }
 
         private static float Heuristic(Vector2Int a, Vector2Int b)

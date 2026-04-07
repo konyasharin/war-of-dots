@@ -8,7 +8,9 @@ namespace DotWars.UI
         private GUIStyle _speedBtnStyle;
         private GUIStyle _speedBtnActiveStyle;
         private GUIStyle _labelStyle;
+        private GUIStyle _timeStyle;
         private bool _stylesInit;
+        private float _gameMinutes; // in-game minutes elapsed
 
         private void InitStyles()
         {
@@ -31,12 +33,23 @@ namespace DotWars.UI
             };
             _labelStyle.normal.textColor = new Color(0.7f, 0.7f, 0.7f);
 
+            _timeStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 24,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+            _timeStyle.normal.textColor = new Color(1f, 0.95f, 0.8f);
+
             _stylesInit = true;
         }
 
         private void Update()
         {
             if (GameManager.Instance == null) return;
+
+            // 1 real second = 1 in-game minute at 1x
+            _gameMinutes += Time.deltaTime;
 
             // Keyboard shortcuts
             if (Input.GetKeyDown(KeyCode.Space))
@@ -71,17 +84,25 @@ namespace DotWars.UI
             float x = Screen.width - totalW - 15;
             float y = 15;
 
+            // In-game time display
+            int totalMinutes = (int)_gameMinutes;
+            int days = totalMinutes / (24 * 60) + 1;
+            int hours = (totalMinutes / 60) % 24;
+            int minutes = totalMinutes % 60;
+            string timeStr = $"Day {days}  {hours:D2}:{minutes:D2}";
+
             // Background
             GUI.color = new Color(0, 0, 0, 0.6f);
-            GUI.DrawTexture(new Rect(x - 8, y - 5, totalW + 16, h + 40), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(x - 8, y - 5, totalW + 16, h + 75), Texture2D.whiteTexture);
             GUI.color = new Color(0.5f, 0.5f, 0.5f, 0.4f);
-            DrawBorder(new Rect(x - 8, y - 5, totalW + 16, h + 40), 1);
+            DrawBorder(new Rect(x - 8, y - 5, totalW + 16, h + 75), 1);
             GUI.color = Color.white;
 
-            GUI.Label(new Rect(x - 8, y - 2, totalW + 16, 18), "Game Speed", _labelStyle);
+            GUI.Label(new Rect(x - 8, y, totalW + 16, 30), timeStr, _timeStyle);
+            GUI.Label(new Rect(x - 8, y + 30, totalW + 16, 22), "Game Speed", _labelStyle);
 
             float bx = x;
-            float by = y + 18;
+            float by = y + 52;
 
             for (int i = 0; i < labels.Length; i++)
             {
