@@ -13,7 +13,7 @@ namespace DotWars.Units
         [SerializeField] private float clickRadius = 0.3f;
 
         private readonly List<Division> _selected = new();
-        private Camera _camera;
+        private UnityEngine.Camera _camera;
 
         public IReadOnlyList<Division> Selected => _selected;
 
@@ -29,7 +29,7 @@ namespace DotWars.Units
 
         private void Start()
         {
-            _camera = Camera.main;
+            _camera = UnityEngine.Camera.main;
         }
 
         private void Update()

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace DotWars.Camera
+namespace DotWars.CameraSystem
 {
     public class CameraController : MonoBehaviour
     {

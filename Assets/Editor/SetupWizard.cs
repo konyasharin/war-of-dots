@@ -6,7 +6,7 @@ using System.IO;
 using DotWars.Core;
 using DotWars.Map;
 using DotWars.Units;
-using DotWars.Camera;
+using DotWars.CameraSystem;
 
 public class SetupWizard : Editor
 {
