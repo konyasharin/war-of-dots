@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using DotWars.Units;
@@ -18,11 +17,13 @@ namespace DotWars.Map
         private BoundsInt _bounds;
         private Tile _fogTile;
         private float _updateTimer;
+        private bool _devModeDisabled;
 
         private const float UpdateInterval = 0.3f;
         private const int UnitVisionRadius = 8;
-        private const int RegionBorderVision = 2;
         private const int CityVisionRadius = 5;
+
+        public bool DevModeDisabled => _devModeDisabled;
 
         private void Awake()
         {
@@ -48,7 +49,7 @@ namespace DotWars.Map
 
             _fogTile = Resources.Load<Tile>("Tiles/Fog");
 
-            // Initial fog — cover everything
+            // Initial fog
             if (fogTilemap != null && _fogTile != null)
             {
                 for (int x = 0; x < _width; x++)
@@ -69,6 +70,10 @@ namespace DotWars.Map
 
         private void Update()
         {
+            // Dev toggle: F2 to toggle fog
+            if (Input.GetKeyDown(KeyCode.F2))
+                ToggleDevMode();
+
             _updateTimer += Time.deltaTime;
             if (_updateTimer >= UpdateInterval)
             {
@@ -79,11 +84,69 @@ namespace DotWars.Map
             }
         }
 
+        public void ToggleDevMode()
+        {
+            _devModeDisabled = !_devModeDisabled;
+
+            if (fogTilemap == null) return;
+
+            if (_devModeDisabled)
+            {
+                // Remove all fog
+                for (int x = 0; x < _width; x++)
+                    for (int y = 0; y < _height; y++)
+                        fogTilemap.SetTile(new Vector3Int(_bounds.xMin + x, _bounds.yMin + y, 0), null);
+
+                // Show all enemy units
+                var divisions = FindObjectsByType<Division>(FindObjectsSortMode.None);
+                foreach (var div in divisions)
+                    div.SetFogVisible(true);
+            }
+            else
+            {
+                // Re-apply fog
+                System.Array.Clear(_prevPlayerVisible, 0, _prevPlayerVisible.Length);
+                UpdateVisibility();
+
+                for (int x = 0; x < _width; x++)
+                {
+                    for (int y = 0; y < _height; y++)
+                    {
+                        var pos = new Vector3Int(_bounds.xMin + x, _bounds.yMin + y, 0);
+                        if (!_playerVisible[x, y])
+                        {
+                            fogTilemap.SetTile(pos, _fogTile);
+                            fogTilemap.SetTileFlags(pos, TileFlags.None);
+                            fogTilemap.SetColor(pos, new Color(0, 0, 0, 0.7f));
+                        }
+                        _prevPlayerVisible[x, y] = _playerVisible[x, y];
+                    }
+                }
+            }
+        }
+
         private void UpdateVisibility()
         {
-            // Clear
             System.Array.Clear(_playerVisible, 0, _playerVisible.Length);
             System.Array.Clear(_botVisible, 0, _botVisible.Length);
+
+            // Own territory = always visible (no fog on own regions)
+            var rm = RegionManager.Instance;
+            if (rm != null)
+            {
+                foreach (var region in rm.Regions)
+                {
+                    if (region.OwnerIndex < 0) continue;
+                    var visMap = region.OwnerIndex == 0 ? _playerVisible : _botVisible;
+                    foreach (var tile in region.Tiles)
+                    {
+                        int gx = tile.x - _bounds.xMin;
+                        int gy = tile.y - _bounds.yMin;
+                        if (gx >= 0 && gx < _width && gy >= 0 && gy < _height)
+                            visMap[gx, gy] = true;
+                    }
+                }
+            }
 
             // Units vision
             var divisions = FindObjectsByType<Division>(FindObjectsSortMode.None);
@@ -92,23 +155,6 @@ namespace DotWars.Map
                 var grid = MapManager.Instance.WorldToGrid(div.transform.position);
                 var visMap = div.OwnerIndex == 0 ? _playerVisible : _botVisible;
                 FillCircle(visMap, grid, UnitVisionRadius);
-            }
-
-            // Region border vision (own regions — 2 tiles from border)
-            var rm = RegionManager.Instance;
-            if (rm != null)
-            {
-                foreach (var region in rm.Regions)
-                {
-                    if (region.OwnerIndex < 0) continue;
-                    var visMap = region.OwnerIndex == 0 ? _playerVisible : _botVisible;
-
-                    foreach (var tile in region.Tiles)
-                    {
-                        if (rm.IsBorderTile(tile, region))
-                            FillCircle(visMap, tile, RegionBorderVision);
-                    }
-                }
             }
 
             // Cities/ports vision
@@ -142,7 +188,7 @@ namespace DotWars.Map
 
         private void ApplyFog()
         {
-            if (fogTilemap == null || _fogTile == null) return;
+            if (fogTilemap == null || _fogTile == null || _devModeDisabled) return;
 
             for (int x = 0; x < _width; x++)
             {
@@ -153,7 +199,7 @@ namespace DotWars.Map
                     var pos = new Vector3Int(_bounds.xMin + x, _bounds.yMin + y, 0);
                     if (_playerVisible[x, y])
                     {
-                        fogTilemap.SetTile(pos, null); // Remove fog
+                        fogTilemap.SetTile(pos, null);
                     }
                     else
                     {
@@ -169,10 +215,12 @@ namespace DotWars.Map
 
         private void UpdateUnitVisibility()
         {
+            if (_devModeDisabled) return;
+
             var divisions = FindObjectsByType<Division>(FindObjectsSortMode.None);
             foreach (var div in divisions)
             {
-                if (div.OwnerIndex == 0) continue; // Always show player units
+                if (div.OwnerIndex == 0) continue;
 
                 var grid = MapManager.Instance.WorldToGrid(div.transform.position);
                 int gx = grid.x - _bounds.xMin;
@@ -185,6 +233,7 @@ namespace DotWars.Map
 
         public bool IsVisibleToPlayer(Vector2Int gridPos)
         {
+            if (_devModeDisabled) return true;
             int gx = gridPos.x - _bounds.xMin;
             int gy = gridPos.y - _bounds.yMin;
             if (gx < 0 || gx >= _width || gy < 0 || gy >= _height) return false;

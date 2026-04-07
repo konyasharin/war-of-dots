@@ -7,8 +7,8 @@ namespace DotWars.Core
     {
         [Header("Economy")]
         public int startingGold = 300;
-        public float cityIncomePerSec = 10f;
-        public float capitalIncomePerSec = 20f;
+        public float cityIncomePerSec = 1f;
+        public float capitalIncomePerSec = 2f;
 
         [Header("Capture")]
         public float captureTime = 5f;

@@ -48,12 +48,13 @@ namespace DotWars.Map
         {
             if (_convertingUnit != null) return;
 
-            var colliders = Physics2D.OverlapCircleAll(transform.position, 0.5f);
+            var colliders = Physics2D.OverlapCircleAll(transform.position, 0.8f);
             foreach (var col in colliders)
             {
                 var div = col.GetComponent<Division>();
                 if (div == null) continue;
-                if (div.OwnerIndex != _ownerIndex) continue;
+                // Port usable by its owner (or anyone if neutral)
+                if (_ownerIndex >= 0 && div.OwnerIndex != _ownerIndex) continue;
                 if (div.IsMoving) continue;
 
                 // Unit on friendly port — auto-convert

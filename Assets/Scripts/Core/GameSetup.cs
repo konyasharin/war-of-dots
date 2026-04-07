@@ -50,6 +50,9 @@ namespace DotWars.Core
             // Bot AI
             new GameObject("BotController").AddComponent<BotController>();
 
+            // Shop UI
+            new GameObject("ShopPanel").AddComponent<DotWars.UI.ShopPanel>();
+
             // Center camera on player capital
             var map = MapManager.Instance;
             if (map != null)
