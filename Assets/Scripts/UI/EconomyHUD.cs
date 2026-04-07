@@ -6,30 +6,34 @@ namespace DotWars.UI
 {
     public class EconomyHUD : MonoBehaviour
     {
-        private GUIStyle _playerStyle;
-        private GUIStyle _enemyStyle;
+        private GUIStyle _playerGoldStyle;
+        private GUIStyle _enemyGoldStyle;
         private GUIStyle _labelStyle;
         private bool _stylesInit;
 
         private void InitStyles()
         {
-            _playerStyle = new GUIStyle(GUI.skin.label)
+            _playerGoldStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 18,
+                fontSize = 32,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleRight
             };
-            _playerStyle.normal.textColor = new Color(0.3f, 0.6f, 1f);
+            _playerGoldStyle.normal.textColor = new Color(1f, 0.85f, 0.2f);
 
-            _enemyStyle = new GUIStyle(_playerStyle);
-            _enemyStyle.normal.textColor = new Color(1f, 0.35f, 0.35f);
+            _enemyGoldStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 20,
+                alignment = TextAnchor.MiddleRight
+            };
+            _enemyGoldStyle.normal.textColor = new Color(1f, 0.4f, 0.4f, 0.7f);
 
             _labelStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 14,
+                fontSize = 16,
                 alignment = TextAnchor.MiddleRight
             };
-            _labelStyle.normal.textColor = new Color(0.8f, 0.8f, 0.8f);
+            _labelStyle.normal.textColor = new Color(0.7f, 0.7f, 0.7f);
 
             _stylesInit = true;
         }
@@ -38,24 +42,33 @@ namespace DotWars.UI
         {
             if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing) return;
             if (EconomyManager.Instance == null) return;
-
             if (!_stylesInit) InitStyles();
 
-            float x = Screen.width - 180;
-            float y = Screen.height - 80;
+            float w = 300;
+            float h = 110;
+            float x = Screen.width - w - 15;
+            float y = Screen.height - h - 15;
 
-            // Background
-            GUI.color = new Color(0, 0, 0, 0.5f);
-            GUI.DrawTexture(new Rect(x - 10, y - 5, 185, 75), Texture2D.whiteTexture);
+            GUI.color = new Color(0, 0, 0, 0.6f);
+            GUI.DrawTexture(new Rect(x, y, w, h), Texture2D.whiteTexture);
+            GUI.color = new Color(1f, 0.85f, 0.2f, 0.4f);
+            DrawBorder(new Rect(x, y, w, h), 2);
             GUI.color = Color.white;
 
             int playerGold = (int)EconomyManager.Instance.Gold[0];
             int enemyGold = (int)EconomyManager.Instance.Gold[1];
 
-            GUI.Label(new Rect(x, y, 165, 25), "You", _labelStyle);
-            GUI.Label(new Rect(x, y + 18, 165, 30), $"${playerGold}", _playerStyle);
+            GUI.Label(new Rect(x + 10, y + 8, w - 25, 22), "Your Gold", _labelStyle);
+            GUI.Label(new Rect(x + 10, y + 28, w - 25, 40), $"$ {playerGold}", _playerGoldStyle);
+            GUI.Label(new Rect(x + 10, y + 72, w - 25, 28), $"Enemy: ~$ {enemyGold}", _enemyGoldStyle);
+        }
 
-            GUI.Label(new Rect(x, y + 42, 165, 20), $"~${enemyGold} enemy", _enemyStyle);
+        private void DrawBorder(Rect r, float t)
+        {
+            GUI.DrawTexture(new Rect(r.x, r.y, r.width, t), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(r.x, r.yMax - t, r.width, t), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(r.x, r.y, t, r.height), Texture2D.whiteTexture);
+            GUI.DrawTexture(new Rect(r.xMax - t, r.y, t, r.height), Texture2D.whiteTexture);
         }
     }
 }

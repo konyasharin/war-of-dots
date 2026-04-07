@@ -357,6 +357,16 @@ public class SetupWizard : Editor
         visualGo.transform.SetParent(go.transform);
         visualGo.transform.localPosition = Vector3.zero;
 
+        // Black outline — slightly larger circle behind main sprite
+        var outlineGo = new GameObject("Outline");
+        outlineGo.transform.SetParent(visualGo.transform);
+        outlineGo.transform.localPosition = Vector3.zero;
+        outlineGo.transform.localScale = Vector3.one * 1.15f;
+        var outlineSr = outlineGo.AddComponent<SpriteRenderer>();
+        outlineSr.sprite = circleSprite;
+        outlineSr.color = new Color(0, 0, 0, 0.9f);
+        outlineSr.sortingOrder = 9;
+
         // Main sprite — child of Visual
         var sr = visualGo.AddComponent<SpriteRenderer>();
         sr.sprite = circleSprite;
@@ -370,7 +380,7 @@ public class SetupWizard : Editor
         var ringSr = ringGo.AddComponent<SpriteRenderer>();
         ringSr.sprite = ringSprite;
         ringSr.color = new Color(1f, 1f, 1f, 0.8f);
-        ringSr.sortingOrder = 9;
+        ringSr.sortingOrder = 8;
         ringSr.enabled = false;
 
         // Tank dot (black circle in center) — child of Visual

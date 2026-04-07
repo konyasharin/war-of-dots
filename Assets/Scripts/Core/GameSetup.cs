@@ -53,6 +53,7 @@ namespace DotWars.Core
             // UI
             new GameObject("ShopPanel").AddComponent<DotWars.UI.ShopPanel>();
             new GameObject("PortPanel").AddComponent<DotWars.UI.PortPanel>();
+            new GameObject("TimeControlHUD").AddComponent<DotWars.UI.TimeControlHUD>();
 
             // Center camera on player capital
             var map = MapManager.Instance;

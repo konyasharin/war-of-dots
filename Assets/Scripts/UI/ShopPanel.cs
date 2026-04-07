@@ -10,35 +10,22 @@ namespace DotWars.UI
     {
         private bool _visible;
         private City _selectedCity;
-        private GUIStyle _buttonStyle;
+        private GUIStyle _btnStyle;
         private GUIStyle _headerStyle;
         private GUIStyle _infoStyle;
+        private GUIStyle _closeBtnStyle;
         private bool _stylesInit;
+
+        public bool IsVisible => _visible;
 
         private void InitStyles()
         {
-            _buttonStyle = new GUIStyle(GUI.skin.button)
-            {
-                fontSize = 22,
-                fontStyle = FontStyle.Bold,
-                fixedHeight = 55
-            };
-
-            _headerStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 26,
-                fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.MiddleCenter
-            };
+            _btnStyle = new GUIStyle(GUI.skin.button) { fontSize = 20, fontStyle = FontStyle.Bold, fixedHeight = 50 };
+            _headerStyle = new GUIStyle(GUI.skin.label) { fontSize = 28, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             _headerStyle.normal.textColor = Color.white;
-
-            _infoStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 18,
-                alignment = TextAnchor.MiddleLeft
-            };
+            _infoStyle = new GUIStyle(GUI.skin.label) { fontSize = 18 };
             _infoStyle.normal.textColor = new Color(0.8f, 0.8f, 0.8f);
-
+            _closeBtnStyle = new GUIStyle(GUI.skin.button) { fontSize = 18, fontStyle = FontStyle.Bold };
             _stylesInit = true;
         }
 
@@ -46,103 +33,106 @@ namespace DotWars.UI
         {
             if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing) return;
 
-            // Check if player clicked on own city
-            if (Input.GetMouseButtonDown(0))
+            if (Input.GetMouseButtonDown(0) && !_visible)
             {
                 var cam = UnityEngine.Camera.main;
-                Vector3 worldPos = cam.ScreenToWorldPoint(Input.mousePosition);
-                worldPos.z = 0;
+                Vector3 wp = cam.ScreenToWorldPoint(Input.mousePosition);
+                wp.z = 0;
+
+                // Check if clicking on a port (PortPanel handles that)
+                var ports = FindObjectsByType<Port>(FindObjectsSortMode.None);
+                foreach (var p in ports)
+                {
+                    if (p.OwnerIndex == 0 && Vector2.Distance(wp, p.transform.position) < 1f)
+                        return; // Let PortPanel handle it
+                }
 
                 var cities = FindObjectsByType<City>(FindObjectsSortMode.None);
-                City closest = null;
-                float closestDist = 1f;
-
                 foreach (var c in cities)
                 {
-                    if (c.OwnerIndex != 0) continue;
-                    float dist = Vector2.Distance(worldPos, c.transform.position);
-                    if (dist < closestDist)
+                    if (c.OwnerIndex == 0 && Vector2.Distance(wp, c.transform.position) < 1f)
                     {
-                        closestDist = dist;
-                        closest = c;
+                        _selectedCity = c;
+                        _visible = true;
+                        return;
                     }
-                }
-
-                if (closest != null)
-                {
-                    _selectedCity = closest;
-                    _visible = true;
-                }
-                else if (_visible)
-                {
-                    // Check if click is outside panel area
-                    var panelRect = new Rect(10, Screen.height / 2 - 120, 200, 240);
-                    var mouseGUI = new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y);
-                    if (!panelRect.Contains(mouseGUI))
-                        _visible = false;
                 }
             }
 
-            if (Input.GetKeyDown(KeyCode.Escape))
-                _visible = false;
+            if (Input.GetKeyDown(KeyCode.Escape)) _visible = false;
         }
 
         private void OnGUI()
         {
             if (!_visible || _selectedCity == null) return;
-            if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing) return;
-
             if (!_stylesInit) InitStyles();
 
-            float w = 380;
-            float h = 420;
-            float x = 10;
-            float y = Screen.height / 2f - h / 2f;
+            float w = Screen.width * 0.2f;
+            float h = Screen.height;
+            float x = 0;
+            float y = 0;
 
             // Background
-            GUI.color = new Color(0, 0, 0, 0.8f);
+            GUI.color = new Color(0.05f, 0.05f, 0.1f, 0.92f);
             GUI.DrawTexture(new Rect(x, y, w, h), Texture2D.whiteTexture);
-            GUI.color = new Color(0.3f, 0.5f, 1f, 0.6f);
-            DrawBorder(new Rect(x, y, w, h), 2);
+            GUI.color = new Color(0.3f, 0.5f, 1f, 0.5f);
+            GUI.DrawTexture(new Rect(w - 2, 0, 2, h), Texture2D.whiteTexture); // right edge
             GUI.color = Color.white;
 
-            string cityName = _selectedCity.IsCapital ? "Capital" : "City";
-            GUI.Label(new Rect(x, y + 10, w, 35), cityName, _headerStyle);
+            float pad = 20;
+            float cy = pad;
 
-            if (GUI.Button(new Rect(x + w - 40, y + 10, 30, 25), "X"))
+            // Header
+            string name = _selectedCity.IsCapital ? "CAPITAL" : "CITY";
+            GUI.Label(new Rect(x + pad, cy, w - pad * 2, 40), name, _headerStyle);
+            cy += 50;
+
+            // Close
+            if (GUI.Button(new Rect(w - 45, 10, 35, 30), "X", _closeBtnStyle))
             {
                 _visible = false;
                 return;
             }
 
+            // Gold
             float gold = EconomyManager.Instance != null ? EconomyManager.Instance.Gold[0] : 0;
-            GUI.Label(new Rect(x + 20, y + 50, w - 40, 28), $"Gold: ${(int)gold}", _infoStyle);
+            GUI.Label(new Rect(x + pad, cy, w - pad * 2, 28), $"Gold: ${(int)gold}", _infoStyle);
+            cy += 40;
 
-            float by = y + 85;
+            // Separator
+            GUI.color = new Color(0.4f, 0.4f, 0.5f, 0.4f);
+            GUI.DrawTexture(new Rect(x + pad, cy, w - pad * 2, 1), Texture2D.whiteTexture);
+            GUI.color = Color.white;
+            cy += 15;
 
-            GUI.Label(new Rect(x + 20, by, w - 40, 28), "Units:", _infoStyle);
-            by += 32;
+            GUI.Label(new Rect(x + pad, cy, w - pad * 2, 28), "RECRUIT", _infoStyle);
+            cy += 35;
 
-            if (GUI.Button(new Rect(x + 20, by, w - 40, 55), "Infantry  $100", _buttonStyle))
+            if (GUI.Button(new Rect(x + pad, cy, w - pad * 2, 50), "Infantry  $100", _btnStyle))
                 BuyUnit(DivisionType.Infantry, 100);
-            by += 65;
+            cy += 60;
 
-            if (GUI.Button(new Rect(x + 20, by, w - 40, 55), "Tank  $200", _buttonStyle))
+            if (GUI.Button(new Rect(x + pad, cy, w - pad * 2, 50), "Tank  $200", _btnStyle))
                 BuyUnit(DivisionType.Tank, 200);
-            by += 70;
+            cy += 70;
 
-            GUI.Label(new Rect(x + 20, by, w - 40, 28), "Buildings:", _infoStyle);
-            by += 32;
+            // Separator
+            GUI.color = new Color(0.4f, 0.4f, 0.5f, 0.4f);
+            GUI.DrawTexture(new Rect(x + pad, cy, w - pad * 2, 1), Texture2D.whiteTexture);
+            GUI.color = Color.white;
+            cy += 15;
+
+            GUI.Label(new Rect(x + pad, cy, w - pad * 2, 28), "BUILD", _infoStyle);
+            cy += 35;
 
             GUI.enabled = false;
-            GUI.Button(new Rect(x + 20, by, w - 40, 55), "Port  $150 (soon)", _buttonStyle);
+            GUI.Button(new Rect(x + pad, cy, w - pad * 2, 50), "Port  $150 (soon)", _btnStyle);
             GUI.enabled = true;
         }
 
         private void BuyUnit(DivisionType type, int cost)
         {
             if (EconomyManager.Instance == null || DivisionSpawner.Instance == null) return;
-
             if (!EconomyManager.Instance.SpendGold(0, cost)) return;
 
             var cityGrid = MapManager.Instance.WorldToGrid(_selectedCity.transform.position);
@@ -164,14 +154,6 @@ namespace DotWars.UI
                     return pos;
             }
             return center;
-        }
-
-        private void DrawBorder(Rect r, float t)
-        {
-            GUI.DrawTexture(new Rect(r.x, r.y, r.width, t), Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(r.x, r.yMax - t, r.width, t), Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(r.x, r.y, t, r.height), Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(r.xMax - t, r.y, t, r.height), Texture2D.whiteTexture);
         }
     }
 }

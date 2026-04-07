@@ -21,7 +21,9 @@ namespace DotWars.Core
         public GameState State { get; private set; } = GameState.Menu;
 
         private int _timeScaleIndex;
-        private readonly float[] _timeScales = { 1f, 2f, 4f };
+        private readonly float[] _timeScales = { 0f, 1f, 2f, 4f, 8f }; // 0=pause,1-4=speeds
+
+        public int TimeScaleIndex => _timeScaleIndex;
 
         public float CurrentTimeScale => _timeScales[_timeScaleIndex];
 
@@ -56,14 +58,24 @@ namespace DotWars.Core
         public void CycleTimeScale()
         {
             _timeScaleIndex = (_timeScaleIndex + 1) % _timeScales.Length;
+            if (_timeScaleIndex == 0) _timeScaleIndex = 1; // Skip pause in cycle
+            Time.timeScale = _timeScales[_timeScaleIndex];
+        }
 
-            if (State == GameState.Playing)
-                Time.timeScale = _timeScales[_timeScaleIndex];
+        public void SetTimeScaleIndex(int index)
+        {
+            _timeScaleIndex = Mathf.Clamp(index, 0, _timeScales.Length - 1);
+            Time.timeScale = _timeScales[_timeScaleIndex];
+        }
+
+        public string[] GetSpeedLabels()
+        {
+            return new[] { "||", "1x", "2x", "4x", "8x" };
         }
 
         public void StartGame()
         {
-            _timeScaleIndex = 0;
+            _timeScaleIndex = 1; // 1x speed
             SetState(GameState.Playing);
         }
 
