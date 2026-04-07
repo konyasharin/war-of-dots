@@ -184,8 +184,6 @@ namespace DotWars.Units
                 // Calculate desired position
                 Vector2 desiredPos = (Vector2)transform.position + direction.normalized * speed * Time.deltaTime;
 
-                // Check if any unit blocks the desired position
-                bool blocked = false;
                 var nearby = Physics2D.OverlapCircleAll(desiredPos, 0.35f);
                 foreach (var col in nearby)
                 {
@@ -193,8 +191,6 @@ namespace DotWars.Units
                     var other = col.GetComponent<Division>();
                     if (other == null) continue;
 
-                    // Blocked by any unit — steer around
-                    blocked = true;
                     Vector2 away = (desiredPos - (Vector2)other.transform.position).normalized;
                     Vector2 perpendicular = new Vector2(-direction.normalized.y, direction.normalized.x);
                     float dot = Vector2.Dot(away, perpendicular);
