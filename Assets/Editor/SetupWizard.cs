@@ -28,11 +28,12 @@ public class SetupWizard : Editor
         var sprite = CreateWhiteSquareSprite();
         var tiles = CreateTiles(sprite);
         var terrainDatas = CreateTerrainDatas();
-        var infantryStats = CreateDivisionStats("InfantryStats", DivisionType.Infantry, 100f, 10f, 4f, 100);
-        var tankStats = CreateDivisionStats("TankStats", DivisionType.Tank, 200f, 20f, 4f, 200);
+        var infantryStats = CreateDivisionStats("InfantryStats", DivisionType.Infantry, 100f, 10f, 6f, 100);
+        var tankStats = CreateDivisionStats("TankStats", DivisionType.Tank, 200f, 20f, 6f, 200);
         var gameConfig = CreateGameConfig();
         var circleSprite = CreateCircleSprite();
         var ringSprite = CreateRingSprite();
+        CreateCrackSprites();
         EnsureDivisionLayer();
         var prefab = CreateDivisionPrefab(circleSprite, ringSprite);
         CreateGameScene(tiles);
@@ -47,8 +48,8 @@ public class SetupWizard : Editor
         string[] folders =
         {
             "Assets/Tiles", "Assets/Resources/Terrain", "Assets/Resources/Units",
-            "Assets/Resources/Prefabs", "Assets/Resources", "Assets/Sprites",
-            "Assets/Scenes", "Assets/Editor"
+            "Assets/Resources/Prefabs", "Assets/Resources/Sprites", "Assets/Resources",
+            "Assets/Sprites", "Assets/Scenes", "Assets/Editor"
         };
 
         foreach (var folder in folders)
@@ -217,6 +218,51 @@ public class SetupWizard : Editor
         return config;
     }
 
+    private static void CreateCrackSprites()
+    {
+        // Light cracks
+        CreateSpriteAsset("Assets/Resources/Sprites/CrackLight.png", 64, 64, FilterMode.Bilinear, (tex) =>
+        {
+            for (int y = 0; y < 64; y++)
+                for (int x = 0; x < 64; x++)
+                    tex.SetPixel(x, y, Color.clear);
+
+            // Draw a few thin crack lines
+            DrawCrackLine(tex, 10, 32, 35, 20);
+            DrawCrackLine(tex, 30, 45, 50, 30);
+        });
+
+        // Heavy cracks
+        CreateSpriteAsset("Assets/Resources/Sprites/CrackHeavy.png", 64, 64, FilterMode.Bilinear, (tex) =>
+        {
+            for (int y = 0; y < 64; y++)
+                for (int x = 0; x < 64; x++)
+                    tex.SetPixel(x, y, Color.clear);
+
+            DrawCrackLine(tex, 8, 32, 35, 15);
+            DrawCrackLine(tex, 28, 48, 55, 28);
+            DrawCrackLine(tex, 15, 10, 40, 50);
+            DrawCrackLine(tex, 38, 55, 58, 35);
+            DrawCrackLine(tex, 20, 25, 48, 18);
+        });
+    }
+
+    private static void DrawCrackLine(Texture2D tex, int x0, int y0, int x1, int y1)
+    {
+        int dx = Mathf.Abs(x1 - x0), dy = Mathf.Abs(y1 - y0);
+        int sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+        int err = dx - dy;
+        while (true)
+        {
+            if (x0 >= 0 && x0 < 64 && y0 >= 0 && y0 < 64)
+                tex.SetPixel(x0, y0, Color.white);
+            if (x0 == x1 && y0 == y1) break;
+            int e2 = 2 * err;
+            if (e2 > -dy) { err -= dy; x0 += sx; }
+            if (e2 < dx) { err += dx; y0 += sy; }
+        }
+    }
+
     private static void EnsureDivisionLayer()
     {
         var tagManager = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
@@ -245,9 +291,7 @@ public class SetupWizard : Editor
         var path = "Assets/Resources/Prefabs/Division.prefab";
         var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
         if (existing != null)
-        {
             AssetDatabase.DeleteAsset(path);
-        }
 
         int divisionLayer = LayerMask.NameToLayer("Division");
         if (divisionLayer == -1) divisionLayer = 0;
@@ -255,10 +299,12 @@ public class SetupWizard : Editor
         var go = new GameObject("Division");
         go.layer = divisionLayer;
 
+        // Main sprite
         var sr = go.AddComponent<SpriteRenderer>();
         sr.sprite = circleSprite;
         sr.sortingOrder = 10;
 
+        // Selection ring
         var ringGo = new GameObject("SelectionRing");
         ringGo.transform.SetParent(go.transform);
         ringGo.transform.localPosition = Vector3.zero;
@@ -269,10 +315,53 @@ public class SetupWizard : Editor
         ringSr.sortingOrder = 9;
         ringSr.enabled = false;
 
-        // Physics
+        // Tank border (thicker ring, visible only for tanks — Division.Initialize enables it)
+        var borderGo = new GameObject("TankBorder");
+        borderGo.transform.SetParent(go.transform);
+        borderGo.transform.localPosition = Vector3.zero;
+        borderGo.transform.localScale = Vector3.one * 1.15f;
+        var borderSr = borderGo.AddComponent<SpriteRenderer>();
+        borderSr.sprite = ringSprite;
+        borderSr.color = new Color(1f, 1f, 1f, 0.6f);
+        borderSr.sortingOrder = 11;
+        borderSr.enabled = false;
+
+        // Crack overlay
+        var crackGo = new GameObject("CrackOverlay");
+        crackGo.transform.SetParent(go.transform);
+        crackGo.transform.localPosition = Vector3.zero;
+        var crackSr = crackGo.AddComponent<SpriteRenderer>();
+        crackSr.sortingOrder = 12;
+        crackSr.enabled = false;
+
+        // HP bar background
+        var hpBgGo = new GameObject("HPBarBg");
+        hpBgGo.transform.SetParent(go.transform);
+        hpBgGo.transform.localPosition = new Vector3(0, 0.55f, 0);
+        hpBgGo.transform.localScale = new Vector3(0.6f, 0.08f, 1f);
+        var hpBgSr = hpBgGo.AddComponent<SpriteRenderer>();
+        hpBgSr.sprite = circleSprite; // reuse circle as a rounded rect-ish bar
+        hpBgSr.color = new Color(0.15f, 0.15f, 0.15f, 0.8f);
+        hpBgSr.sortingOrder = 13;
+
+        // HP bar fill
+        var hpFillGo = new GameObject("HPBarFill");
+        hpFillGo.transform.SetParent(go.transform);
+        hpFillGo.transform.localPosition = new Vector3(0, 0.55f, 0);
+        hpFillGo.transform.localScale = new Vector3(0.6f, 0.06f, 1f);
+        var hpFillSr = hpFillGo.AddComponent<SpriteRenderer>();
+        hpFillSr.sprite = circleSprite;
+        hpFillSr.color = Color.green;
+        hpFillSr.sortingOrder = 14;
+
+        // Physics — Dynamic for real collision
         var rb = go.AddComponent<Rigidbody2D>();
-        rb.bodyType = RigidbodyType2D.Kinematic;
+        rb.bodyType = RigidbodyType2D.Dynamic;
+        rb.gravityScale = 0f;
+        rb.linearDamping = 10f;
+        rb.angularDamping = 10f;
         rb.constraints = RigidbodyConstraints2D.FreezeRotation;
+        rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
 
         var collider = go.AddComponent<CircleCollider2D>();
         collider.radius = 0.4f;
