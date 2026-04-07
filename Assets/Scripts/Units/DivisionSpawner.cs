@@ -33,7 +33,8 @@ namespace DotWars.Units
             if (_divisionPrefab == null) return null;
 
             var stats = type == DivisionType.Infantry ? _infantryStats : _tankStats;
-            var go = Instantiate(_divisionPrefab, transform);
+            var worldPos = MapManager.Instance.GridToWorld(gridPos);
+            var go = Instantiate(_divisionPrefab, worldPos, Quaternion.identity, transform);
             var division = go.GetComponent<Division>();
             division.Initialize(stats, ownerIndex, gridPos);
 
