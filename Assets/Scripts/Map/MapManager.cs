@@ -39,6 +39,16 @@ namespace DotWars.Map
             _height = _bounds.size.y;
             _terrainGrid = new TerrainData[_width, _height];
 
+            Debug.Log($"[MapManager] Bounds: {_bounds}, Size: {_width}x{_height}, Mappings: {tileMappings?.Length ?? 0}");
+
+            if (tileMappings != null)
+            {
+                for (int i = 0; i < tileMappings.Length; i++)
+                    Debug.Log($"[MapManager] Mapping[{i}]: tile={tileMappings[i].tile} terrainData={tileMappings[i].terrainData}");
+            }
+
+            int nullTiles = 0, unmapped = 0, mapped = 0;
+
             for (int x = 0; x < _width; x++)
             {
                 for (int y = 0; y < _height; y++)
@@ -46,9 +56,15 @@ namespace DotWars.Map
                     var cellPos = new Vector3Int(_bounds.xMin + x, _bounds.yMin + y, 0);
                     var tile = terrainTilemap.GetTile(cellPos);
 
+                    if (tile == null) { nullTiles++; continue; }
+
                     _terrainGrid[x, y] = GetTerrainDataForTile(tile);
+                    if (_terrainGrid[x, y] == null) unmapped++;
+                    else mapped++;
                 }
             }
+
+            Debug.Log($"[MapManager] Grid built: {mapped} mapped, {unmapped} unmapped, {nullTiles} null tiles");
         }
 
         private TerrainData GetTerrainDataForTile(TileBase tile)
