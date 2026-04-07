@@ -243,7 +243,10 @@ public class SetupWizard : Editor
     {
         var path = "Assets/Resources/Prefabs/Division.prefab";
         var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-        if (existing != null) return existing;
+        if (existing != null)
+        {
+            AssetDatabase.DeleteAsset(path);
+        }
 
         int divisionLayer = LayerMask.NameToLayer("Division");
         if (divisionLayer == -1) divisionLayer = 0;
@@ -265,14 +268,26 @@ public class SetupWizard : Editor
         ringSr.sortingOrder = 9;
         ringSr.enabled = false;
 
+        // Physics
+        var rb = go.AddComponent<Rigidbody2D>();
+        rb.bodyType = RigidbodyType2D.Kinematic;
+        rb.constraints = RigidbodyConstraints2D.FreezeRotation;
+
         var collider = go.AddComponent<CircleCollider2D>();
         collider.radius = 0.4f;
 
-        var division = go.AddComponent<Division>();
-        var so = new SerializedObject(division);
-        so.FindProperty("spriteRenderer").objectReferenceValue = sr;
-        so.FindProperty("selectionRing").objectReferenceValue = ringSr;
-        so.ApplyModifiedProperties();
+        // Path visualization
+        var lr = go.AddComponent<LineRenderer>();
+        lr.startWidth = 0.05f;
+        lr.endWidth = 0.05f;
+        lr.startColor = new Color(0.5f, 0.5f, 0.5f, 0.4f);
+        lr.endColor = new Color(0.5f, 0.5f, 0.5f, 0.4f);
+        lr.positionCount = 0;
+        lr.sortingOrder = 5;
+        lr.useWorldSpace = true;
+        lr.material = new Material(Shader.Find("Sprites/Default"));
+
+        go.AddComponent<Division>();
 
         var prefab = PrefabUtility.SaveAsPrefabAsset(go, path);
         Object.DestroyImmediate(go);
