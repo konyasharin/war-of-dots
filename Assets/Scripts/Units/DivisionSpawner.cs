@@ -35,6 +35,7 @@ namespace DotWars.Units
             var stats = type == DivisionType.Infantry ? _infantryStats : _tankStats;
             var worldPos = MapManager.Instance.GridToWorld(gridPos);
             var go = Instantiate(_divisionPrefab, worldPos, Quaternion.identity);
+            Debug.Log($"[Spawner] pos={go.transform.position} target={worldPos} rb={go.GetComponent<Rigidbody2D>()?.bodyType}");
             var division = go.GetComponent<Division>();
             division.Initialize(stats, ownerIndex, gridPos);
 
