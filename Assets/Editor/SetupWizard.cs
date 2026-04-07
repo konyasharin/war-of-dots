@@ -35,7 +35,7 @@ public class SetupWizard : Editor
         var ringSprite = CreateRingSprite();
         EnsureDivisionLayer();
         var prefab = CreateDivisionPrefab(circleSprite, ringSprite);
-        CreateGameScene(tiles, gameConfig, prefab, infantryStats, tankStats);
+        CreateGameScene(tiles);
 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -46,8 +46,8 @@ public class SetupWizard : Editor
     {
         string[] folders =
         {
-            "Assets/Tiles", "Assets/Resources/Terrain", "Assets/ScriptableObjects/Units",
-            "Assets/ScriptableObjects", "Assets/Prefabs/Units", "Assets/Sprites",
+            "Assets/Tiles", "Assets/Resources/Terrain", "Assets/Resources/Units",
+            "Assets/Resources/Prefabs", "Assets/Resources", "Assets/Sprites",
             "Assets/Scenes", "Assets/Editor"
         };
 
@@ -189,7 +189,7 @@ public class SetupWizard : Editor
 
     private static DivisionStats CreateDivisionStats(string name, DivisionType type, float hp, float damage, float speed, int cost)
     {
-        var path = $"Assets/ScriptableObjects/Units/{name}.asset";
+        var path = $"Assets/Resources/Units/{name}.asset";
         var stats = AssetDatabase.LoadAssetAtPath<DivisionStats>(path);
         if (stats == null)
         {
@@ -206,7 +206,7 @@ public class SetupWizard : Editor
 
     private static GameConfig CreateGameConfig()
     {
-        var path = "Assets/ScriptableObjects/GameConfig.asset";
+        var path = "Assets/Resources/GameConfig.asset";
         var config = AssetDatabase.LoadAssetAtPath<GameConfig>(path);
         if (config == null)
         {
@@ -241,7 +241,7 @@ public class SetupWizard : Editor
 
     private static GameObject CreateDivisionPrefab(Sprite circleSprite, Sprite ringSprite)
     {
-        var path = "Assets/Prefabs/Units/Division.prefab";
+        var path = "Assets/Resources/Prefabs/Division.prefab";
         var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
         if (existing != null) return existing;
 
@@ -279,9 +279,7 @@ public class SetupWizard : Editor
         return prefab;
     }
 
-    private static void CreateGameScene(
-        Tile[] tiles, GameConfig gameConfig, GameObject divisionPrefab,
-        DivisionStats infantryStats, DivisionStats tankStats)
+    private static void CreateGameScene(Tile[] tiles)
     {
         var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
 
@@ -311,28 +309,18 @@ public class SetupWizard : Editor
         PaintTestMap(tilemap, tiles);
         tilemap.RefreshAllTiles();
 
-        // GameManager
-        var gmGo = new GameObject("GameManager");
-        var gm = gmGo.AddComponent<GameManager>();
-        var gmSo = new SerializedObject(gm);
-        gmSo.FindProperty("gameConfig").objectReferenceValue = gameConfig;
-        gmSo.ApplyModifiedProperties();
+        // GameManager (loads GameConfig from Resources)
+        new GameObject("GameManager").AddComponent<GameManager>();
 
-        // MapManager (terrain configs loaded from Resources at runtime)
+        // MapManager (loads TerrainConfigs from Resources, needs tilemap ref)
         var mmGo = new GameObject("MapManager");
         var mm = mmGo.AddComponent<MapManager>();
         var mmSo = new SerializedObject(mm);
         mmSo.FindProperty("terrainTilemap").objectReferenceValue = tilemap;
         mmSo.ApplyModifiedProperties();
 
-        // DivisionSpawner
-        var dsGo = new GameObject("DivisionSpawner");
-        var ds = dsGo.AddComponent<DivisionSpawner>();
-        var dsSo = new SerializedObject(ds);
-        dsSo.FindProperty("divisionPrefab").objectReferenceValue = divisionPrefab;
-        dsSo.FindProperty("infantryStats").objectReferenceValue = infantryStats;
-        dsSo.FindProperty("tankStats").objectReferenceValue = tankStats;
-        dsSo.ApplyModifiedProperties();
+        // DivisionSpawner (loads prefab + stats from Resources)
+        new GameObject("DivisionSpawner").AddComponent<DivisionSpawner>();
 
         // SelectionManager
         var smGo = new GameObject("SelectionManager");

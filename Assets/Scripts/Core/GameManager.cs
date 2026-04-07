@@ -15,9 +15,9 @@ namespace DotWars.Core
     {
         public static GameManager Instance { get; private set; }
 
-        [SerializeField] private GameConfig gameConfig;
+        private GameConfig _gameConfig;
 
-        public GameConfig Config => gameConfig;
+        public GameConfig Config => _gameConfig;
         public GameState State { get; private set; } = GameState.Menu;
 
         private int _timeScaleIndex;
@@ -35,6 +35,10 @@ namespace DotWars.Core
 
             Instance = this;
             DontDestroyOnLoad(gameObject);
+
+            _gameConfig = Resources.Load<GameConfig>("GameConfig");
+            if (_gameConfig == null)
+                Debug.LogError("[GameManager] GameConfig not found in Resources!");
         }
 
         public void SetState(GameState newState)
