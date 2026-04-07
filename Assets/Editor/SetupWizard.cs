@@ -523,6 +523,18 @@ public class SetupWizard : Editor
 
     private static void CreateOverlayTiles(Sprite squareSprite)
     {
+        // Fog tile
+        var fogPath = "Assets/Resources/Tiles/Fog.asset";
+        if (AssetDatabase.LoadAssetAtPath<Tile>(fogPath) == null)
+        {
+            if (!AssetDatabase.IsValidFolder("Assets/Resources/Tiles"))
+                AssetDatabase.CreateFolder("Assets/Resources", "Tiles");
+            var t = ScriptableObject.CreateInstance<Tile>();
+            t.sprite = squareSprite;
+            t.color = new Color(0, 0, 0, 0.7f);
+            AssetDatabase.CreateAsset(t, fogPath);
+        }
+
         var overlayPath = "Assets/Resources/Tiles/Overlay.asset";
         if (AssetDatabase.LoadAssetAtPath<Tile>(overlayPath) == null)
         {
@@ -589,6 +601,9 @@ public class SetupWizard : Editor
         var port = go.AddComponent<Port>();
         port.Initialize();
     }
+
+    // Found port positions (set during map painting, read by GameSetup)
+    public static Vector2Int[] FoundPortPositions { get; private set; }
 
     private static void PaintLargeMap(Tilemap tilemap, Tile[] tiles)
     {
@@ -693,10 +708,56 @@ public class SetupWizard : Editor
         tilemap.SetTile(new Vector3Int(64, 30, 0), city);
 
         // === Ports ===
-        tilemap.SetTile(new Vector3Int(7, 30, 0), port);
-        tilemap.SetTile(new Vector3Int(7, 15, 0), port);
-        tilemap.SetTile(new Vector3Int(92, 30, 0), port);
-        tilemap.SetTile(new Vector3Int(92, 45, 0), port);
+        // Find coast positions for ports dynamically
+        FoundPortPositions = new Vector2Int[4];
+        FoundPortPositions[0] = FindCoastTile(tilemap, 30, true, w);   // left coast y=30
+        FoundPortPositions[1] = FindCoastTile(tilemap, 15, true, w);   // left coast y=15
+        FoundPortPositions[2] = FindCoastTile(tilemap, 30, false, w);  // right coast y=30
+        FoundPortPositions[3] = FindCoastTile(tilemap, 45, false, w);  // right coast y=45
+
+        foreach (var pp in FoundPortPositions)
+            tilemap.SetTile(new Vector3Int(pp.x, pp.y, 0), port);
+    }
+
+    private static Vector2Int FindCoastTile(Tilemap tilemap, int y, bool fromLeft, int mapWidth)
+    {
+        if (fromLeft)
+        {
+            // Scan left→right: find first land tile that has water neighbor
+            for (int x = 0; x < mapWidth; x++)
+            {
+                var tile = tilemap.GetTile(new Vector3Int(x, y, 0));
+                if (tile != null && tile.name != "Water" && tile.name != "Mountain")
+                {
+                    // Check if left neighbor is water
+                    if (x > 0)
+                    {
+                        var left = tilemap.GetTile(new Vector3Int(x - 1, y, 0));
+                        if (left != null && left.name == "Water")
+                            return new Vector2Int(x, y);
+                    }
+                }
+            }
+        }
+        else
+        {
+            // Scan right→left
+            for (int x = mapWidth - 1; x >= 0; x--)
+            {
+                var tile = tilemap.GetTile(new Vector3Int(x, y, 0));
+                if (tile != null && tile.name != "Water" && tile.name != "Mountain")
+                {
+                    if (x < mapWidth - 1)
+                    {
+                        var right = tilemap.GetTile(new Vector3Int(x + 1, y, 0));
+                        if (right != null && right.name == "Water")
+                            return new Vector2Int(x, y);
+                    }
+                }
+            }
+        }
+        // Fallback
+        return fromLeft ? new Vector2Int(5, y) : new Vector2Int(mapWidth - 6, y);
     }
 
     private static void PaintNoisyMountains(Tilemap tilemap, Tile mt, int x1, int y1, int x2, int y2, float seed)

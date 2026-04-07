@@ -312,6 +312,15 @@ namespace DotWars.Units
             }
         }
 
+        public void SetFogVisible(bool visible)
+        {
+            // Hide/show enemy units in fog
+            if (_visual != null) _visual.gameObject.SetActive(visible);
+            if (_hpBarBg != null) _hpBarBg.enabled = visible;
+            if (_hpBarFill != null) _hpBarFill.enabled = visible;
+            if (_lineRenderer != null) _lineRenderer.enabled = visible;
+        }
+
         public void ConvertToShip()
         {
             if (IsShip) return;

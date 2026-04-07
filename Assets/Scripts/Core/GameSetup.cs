@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Tilemaps;
 using DotWars.Units;
 using DotWars.Map;
 using DotWars.CameraSystem;
+using DotWars.AI;
 
 namespace DotWars.Core
 {
@@ -21,14 +23,8 @@ namespace DotWars.Core
             new[] { 64, 30, -1, 0 }, // Neutral center-right
         };
 
-        // Port definitions: gridX, gridY, linked to city index
-        private static readonly int[][] PortDefs =
-        {
-            new[] { 7, 30, 0 },   // Left coast, near player capital
-            new[] { 7, 15, 1 },   // Left coast, near player city 2
-            new[] { 92, 30, 4 },  // Right coast, near bot capital
-            new[] { 92, 45, 5 },  // Right coast, near bot city 3
-        };
+        // Port linked city indices (positions found dynamically from map)
+        private static readonly int[] PortCityLinks = { 0, 1, 4, 5 };
 
         private Sprite _flagSprite;
         private Sprite _ringSprite;
@@ -42,12 +38,17 @@ namespace DotWars.Core
 
             GameManager.Instance.StartGame();
 
+            SetupFogOfWar();
+
             var regions = SetupCitiesAndRegions();
             SetupPorts(regions);
 
             RegionManager.Instance?.RefreshAllVisuals();
 
             SpawnStartingUnits();
+
+            // Bot AI
+            new GameObject("BotController").AddComponent<BotController>();
 
             // Center camera on player capital
             var map = MapManager.Instance;
@@ -57,6 +58,25 @@ namespace DotWars.Core
                 if (cam != null)
                     cam.CenterOn(map.GridToWorld(new Vector2Int(15, 30)));
             }
+        }
+
+        private void SetupFogOfWar()
+        {
+            // Create fog tilemap under Grid
+            var grid = GameObject.Find("Grid");
+            if (grid == null) return;
+
+            var fogGo = new GameObject("Fog");
+            fogGo.transform.SetParent(grid.transform);
+            var fogTilemap = fogGo.AddComponent<Tilemap>();
+            var fogRenderer = fogGo.AddComponent<TilemapRenderer>();
+            fogRenderer.sortingOrder = 15;
+
+            var fogMgr = new GameObject("FogOfWar").AddComponent<FogOfWar>();
+            // Set fogTilemap via reflection since it's serialized
+            var field = typeof(FogOfWar).GetField("fogTilemap", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (field != null)
+                field.SetValue(fogMgr, fogTilemap);
         }
 
         private List<Region> SetupCitiesAndRegions()
@@ -136,13 +156,17 @@ namespace DotWars.Core
         {
             var map = MapManager.Instance;
 
-            foreach (var def in PortDefs)
+            // Find port tiles on the map
+            var portPositions = FindPortTilesOnMap(map);
+
+            for (int i = 0; i < portPositions.Count; i++)
             {
-                int gx = def[0], gy = def[1], cityIdx = def[2];
+                var gpos = portPositions[i];
+                int cityIdx = i < PortCityLinks.Length ? PortCityLinks[i] : 0;
                 var region = cityIdx < regions.Count ? regions[cityIdx] : null;
 
-                var portGo = new GameObject($"Port_{gx}_{gy}");
-                portGo.transform.position = map.GridToWorld(new Vector2Int(gx, gy));
+                var portGo = new GameObject($"Port_{gpos.x}_{gpos.y}");
+                portGo.transform.position = map.GridToWorld(gpos);
 
                 var outlineGo = new GameObject("Outline");
                 outlineGo.transform.SetParent(portGo.transform);
@@ -161,6 +185,22 @@ namespace DotWars.Core
                     region.Ports.Add(portComp);
                 }
             }
+        }
+
+        private List<Vector2Int> FindPortTilesOnMap(MapManager map)
+        {
+            var result = new List<Vector2Int>();
+            var bounds = map.Bounds;
+            for (int x = bounds.xMin; x < bounds.xMax; x++)
+            {
+                for (int y = bounds.yMin; y < bounds.yMax; y++)
+                {
+                    var terrain = map.GetTerrainAt(new Vector2Int(x, y));
+                    if (terrain != null && terrain.terrainType == TerrainType.Port)
+                        result.Add(new Vector2Int(x, y));
+                }
+            }
+            return result;
         }
 
         private void SpawnStartingUnits()

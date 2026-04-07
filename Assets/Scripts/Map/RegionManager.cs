@@ -111,7 +111,7 @@ namespace DotWars.Map
             }
         }
 
-        private bool IsBorderTile(Vector2Int tile, Region region)
+        public bool IsBorderTile(Vector2Int tile, Region region)
         {
             Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
             foreach (var d in dirs)
