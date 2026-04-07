@@ -13,8 +13,9 @@ namespace DotWars.AI
         public static BotController Instance { get; private set; }
 
         private const int BotIndex = 1;
-        private const float ThinkInterval = 2f;
+        private const float ThinkInterval = 2.5f;
         private float _thinkTimer;
+        private readonly Dictionary<Division, Vector2Int> _assignedTargets = new();
 
         private void Awake()
         {
@@ -40,143 +41,234 @@ namespace DotWars.AI
 
         private void Think()
         {
+            // Clean up destroyed units from assignments
+            var dead = _assignedTargets.Keys.Where(u => u == null).ToList();
+            foreach (var d in dead) _assignedTargets.Remove(d);
+
             var myUnits = GetMyUnits();
             var allCities = FindObjectsByType<City>(FindObjectsSortMode.None);
+            var enemyUnits = FindObjectsByType<Division>(FindObjectsSortMode.None)
+                .Where(d => d.OwnerIndex != BotIndex).ToList();
+
             var myCapital = allCities.FirstOrDefault(c => c.OwnerIndex == BotIndex && c.IsCapital);
+            var myCities = allCities.Where(c => c.OwnerIndex == BotIndex).ToList();
+            var neutralCities = allCities.Where(c => c.OwnerIndex == -1).ToList();
+            var enemyCities = allCities.Where(c => c.OwnerIndex == 0).ToList();
 
-            // 1. Buy units if affordable
-            TryBuyUnits(myCapital);
+            // Phase 1: Buy units smartly
+            TryBuyUnits(myCapital, myUnits.Count, enemyUnits.Count);
 
-            // 2. Assign tasks to idle units
-            foreach (var unit in myUnits)
+            // Phase 2: Ensure garrisons (1 unit per city for income)
+            var idleUnits = myUnits.Where(u => !u.IsMoving && !u.InCombat).ToList();
+            EnsureGarrisons(myCities, idleUnits);
+
+            // Phase 3: Defend capital
+            idleUnits = myUnits.Where(u => !u.IsMoving && !u.InCombat && !IsGarrison(u, myCities)).ToList();
+            DefendCapital(myCapital, idleUnits, enemyUnits);
+
+            // Phase 4: Group attack — send multiple units to same target
+            idleUnits = myUnits.Where(u => !u.IsMoving && !u.InCombat && !IsGarrison(u, myCities)).ToList();
+            if (idleUnits.Count >= 2)
             {
-                if (unit.IsMoving || unit.InCombat) continue;
-
-                var action = EvaluateBestAction(unit, allCities, myCapital);
-                if (action.HasValue)
-                    unit.MoveTo(action.Value);
-            }
-        }
-
-        private void TryBuyUnits(City capital)
-        {
-            if (capital == null || EconomyManager.Instance == null) return;
-            if (DivisionSpawner.Instance == null) return;
-
-            var gold = EconomyManager.Instance.Gold[BotIndex];
-            var capitalGrid = MapManager.Instance.WorldToGrid(capital.transform.position);
-
-            // Prefer tanks if rich, otherwise infantry
-            if (gold >= 200 && Random.value > 0.6f)
-            {
-                if (EconomyManager.Instance.SpendGold(BotIndex, 200))
+                // Prefer neutral cities first, then enemy
+                City target = PickBestTargetCity(neutralCities, enemyCities, myCapital);
+                if (target != null)
                 {
-                    var spawnPos = FindFreeAdjacentTile(capitalGrid);
-                    DivisionSpawner.Instance.Spawn(DivisionType.Tank, BotIndex, spawnPos);
-                }
-            }
-            else if (gold >= 100)
-            {
-                if (EconomyManager.Instance.SpendGold(BotIndex, 100))
-                {
-                    var spawnPos = FindFreeAdjacentTile(capitalGrid);
-                    DivisionSpawner.Instance.Spawn(DivisionType.Infantry, BotIndex, spawnPos);
-                }
-            }
-        }
-
-        private Vector2Int? EvaluateBestAction(Division unit, City[] allCities, City myCapital)
-        {
-            var unitGrid = MapManager.Instance.WorldToGrid(unit.transform.position);
-            float bestScore = -1;
-            Vector2Int? bestTarget = null;
-
-            // Check if unit is in a city generating income — stay put
-            foreach (var c in allCities)
-            {
-                if (c.OwnerIndex != BotIndex) continue;
-                var cityGrid = MapManager.Instance.WorldToGrid(c.transform.position);
-                if (Vector2Int.Distance(unitGrid, cityGrid) < 1.5f)
-                {
-                    // Already in own city — check if only garrison
-                    if (!HasOtherFriendlyUnitNear(cityGrid, unit))
-                        return null; // Stay as garrison
-                }
-            }
-
-            // Defend capital if enemy nearby
-            if (myCapital != null)
-            {
-                var capGrid = MapManager.Instance.WorldToGrid(myCapital.transform.position);
-                if (IsEnemyNear(capGrid, 15))
-                {
-                    float dist = Vector2Int.Distance(unitGrid, capGrid);
-                    float score = 100f / (dist + 1);
-                    if (score > bestScore)
+                    var targetGrid = MapManager.Instance.WorldToGrid(target.transform.position);
+                    int toSend = Mathf.Min(idleUnits.Count, 3);
+                    // Sort by distance, send closest
+                    idleUnits.Sort((a, b) =>
                     {
-                        bestScore = score;
-                        bestTarget = capGrid;
+                        var ag = MapManager.Instance.WorldToGrid(a.transform.position);
+                        var bg = MapManager.Instance.WorldToGrid(b.transform.position);
+                        return Vector2Int.Distance(ag, targetGrid).CompareTo(Vector2Int.Distance(bg, targetGrid));
+                    });
+
+                    for (int i = 0; i < toSend; i++)
+                    {
+                        var formation = CalculateFormationAround(targetGrid, i, toSend);
+                        idleUnits[i].MoveTo(formation);
+                        _assignedTargets[idleUnits[i]] = targetGrid;
                     }
                 }
             }
-
-            // Capture neutral cities
-            foreach (var c in allCities)
+            else if (idleUnits.Count == 1)
             {
-                if (c.OwnerIndex == BotIndex) continue;
-                var cityGrid = MapManager.Instance.WorldToGrid(c.transform.position);
-                float dist = Vector2Int.Distance(unitGrid, cityGrid);
+                // Single unit — only go to neutral cities (safer)
+                var target = neutralCities
+                    .OrderBy(c => Vector2Int.Distance(
+                        MapManager.Instance.WorldToGrid(idleUnits[0].transform.position),
+                        MapManager.Instance.WorldToGrid(c.transform.position)))
+                    .FirstOrDefault();
 
-                float score;
-                if (c.OwnerIndex == -1) // Neutral
-                    score = 50f / (dist + 1);
-                else // Enemy
-                    score = 30f / (dist + 1);
-
-                if (c.IsCapital && c.OwnerIndex == 0)
-                    score *= 1.5f; // High priority: enemy capital
-
-                if (score > bestScore)
+                if (target != null)
                 {
-                    bestScore = score;
-                    bestTarget = cityGrid;
+                    idleUnits[0].MoveTo(MapManager.Instance.WorldToGrid(target.transform.position));
                 }
             }
 
-            // Retreat if low HP
-            if (unit.CurrentHP < unit.Stats.maxHP * 0.3f && myCapital != null)
+            // Phase 5: Retreat wounded units
+            foreach (var unit in myUnits)
             {
-                var capGrid = MapManager.Instance.WorldToGrid(myCapital.transform.position);
-                bestTarget = capGrid;
+                if (unit.CurrentHP < unit.Stats.maxHP * 0.25f && !unit.IsMoving && myCapital != null)
+                {
+                    unit.MoveTo(MapManager.Instance.WorldToGrid(myCapital.transform.position));
+                }
             }
-
-            return bestTarget;
         }
 
-        private bool IsEnemyNear(Vector2Int pos, float radius)
+        private void TryBuyUnits(City capital, int myCount, int enemyCount)
         {
-            var divisions = FindObjectsByType<Division>(FindObjectsSortMode.None);
-            foreach (var d in divisions)
+            if (capital == null || EconomyManager.Instance == null || DivisionSpawner.Instance == null) return;
+
+            float gold = EconomyManager.Instance.Gold[BotIndex];
+            var capitalGrid = MapManager.Instance.WorldToGrid(capital.transform.position);
+
+            // Don't overspend — save some gold, buy more if outnumbered
+            float minGold = myCount < enemyCount ? 50 : 150;
+            if (gold < 100 + minGold) return;
+
+            // Buy tank if rich and army is big enough
+            if (gold >= 350 && myCount >= 3 && Random.value > 0.5f)
             {
-                if (d.OwnerIndex == BotIndex) continue;
-                var dGrid = MapManager.Instance.WorldToGrid(d.transform.position);
-                if (Vector2Int.Distance(pos, dGrid) < radius)
-                    return true;
+                if (EconomyManager.Instance.SpendGold(BotIndex, 200))
+                {
+                    DivisionSpawner.Instance.Spawn(DivisionType.Tank, BotIndex, FindFreeAdjacentTile(capitalGrid));
+                }
+            }
+            else if (gold >= 100 + minGold)
+            {
+                if (EconomyManager.Instance.SpendGold(BotIndex, 100))
+                {
+                    DivisionSpawner.Instance.Spawn(DivisionType.Infantry, BotIndex, FindFreeAdjacentTile(capitalGrid));
+                }
+            }
+        }
+
+        private void EnsureGarrisons(List<City> myCities, List<Division> idleUnits)
+        {
+            foreach (var city in myCities)
+            {
+                var cityGrid = MapManager.Instance.WorldToGrid(city.transform.position);
+                bool hasGarrison = false;
+
+                var all = FindObjectsByType<Division>(FindObjectsSortMode.None);
+                foreach (var d in all)
+                {
+                    if (d.OwnerIndex != BotIndex) continue;
+                    var dGrid = MapManager.Instance.WorldToGrid(d.transform.position);
+                    if (Vector2Int.Distance(dGrid, cityGrid) < 1.5f)
+                    {
+                        hasGarrison = true;
+                        break;
+                    }
+                }
+
+                if (!hasGarrison && idleUnits.Count > 0)
+                {
+                    // Find closest idle unit
+                    Division closest = null;
+                    float bestDist = float.MaxValue;
+                    foreach (var u in idleUnits)
+                    {
+                        var uGrid = MapManager.Instance.WorldToGrid(u.transform.position);
+                        float dist = Vector2Int.Distance(uGrid, cityGrid);
+                        if (dist < bestDist)
+                        {
+                            bestDist = dist;
+                            closest = u;
+                        }
+                    }
+
+                    if (closest != null)
+                    {
+                        closest.MoveTo(cityGrid);
+                        idleUnits.Remove(closest);
+                    }
+                }
+            }
+        }
+
+        private void DefendCapital(City capital, List<Division> idleUnits, List<Division> enemyUnits)
+        {
+            if (capital == null || idleUnits.Count == 0) return;
+
+            var capGrid = MapManager.Instance.WorldToGrid(capital.transform.position);
+            var nearbyEnemies = enemyUnits
+                .Where(e => Vector2Int.Distance(MapManager.Instance.WorldToGrid(e.transform.position), capGrid) < 20)
+                .ToList();
+
+            if (nearbyEnemies.Count == 0) return;
+
+            // Send all available idle units to defend
+            int defenders = Mathf.Min(idleUnits.Count, nearbyEnemies.Count + 1);
+            for (int i = 0; i < defenders; i++)
+            {
+                var enemyGrid = MapManager.Instance.WorldToGrid(nearbyEnemies[i % nearbyEnemies.Count].transform.position);
+                idleUnits[i].MoveTo(enemyGrid);
+            }
+
+            for (int i = 0; i < defenders; i++)
+                idleUnits.RemoveAt(0);
+        }
+
+        private City PickBestTargetCity(List<City> neutral, List<City> enemy, City myCapital)
+        {
+            // Prefer closest neutral, then closest enemy non-capital, then enemy capital
+            var capGrid = myCapital != null ? MapManager.Instance.WorldToGrid(myCapital.transform.position) : Vector2Int.zero;
+
+            City best = null;
+            float bestScore = float.MaxValue;
+
+            foreach (var c in neutral)
+            {
+                float dist = Vector2Int.Distance(capGrid, MapManager.Instance.WorldToGrid(c.transform.position));
+                if (dist < bestScore) { bestScore = dist; best = c; }
+            }
+
+            if (best != null) return best;
+
+            bestScore = float.MaxValue;
+            foreach (var c in enemy)
+            {
+                float dist = Vector2Int.Distance(capGrid, MapManager.Instance.WorldToGrid(c.transform.position));
+                float weight = c.IsCapital ? 1.5f : 1f; // capitals slightly less priority (harder)
+                if (dist * weight < bestScore) { bestScore = dist * weight; best = c; }
+            }
+
+            return best;
+        }
+
+        private bool IsGarrison(Division unit, List<City> myCities)
+        {
+            var uGrid = MapManager.Instance.WorldToGrid(unit.transform.position);
+            foreach (var c in myCities)
+            {
+                var cGrid = MapManager.Instance.WorldToGrid(c.transform.position);
+                if (Vector2Int.Distance(uGrid, cGrid) < 1.5f)
+                {
+                    // Only consider it garrison if it's the ONLY unit there
+                    int count = 0;
+                    var all = FindObjectsByType<Division>(FindObjectsSortMode.None);
+                    foreach (var d in all)
+                    {
+                        if (d.OwnerIndex != BotIndex) continue;
+                        if (Vector2Int.Distance(MapManager.Instance.WorldToGrid(d.transform.position), cGrid) < 1.5f)
+                            count++;
+                    }
+                    return count <= 1;
+                }
             }
             return false;
         }
 
-        private bool HasOtherFriendlyUnitNear(Vector2Int pos, Division exclude)
+        private Vector2Int CalculateFormationAround(Vector2Int center, int index, int total)
         {
-            var divisions = FindObjectsByType<Division>(FindObjectsSortMode.None);
-            foreach (var d in divisions)
-            {
-                if (d == exclude || d.OwnerIndex != BotIndex) continue;
-                var dGrid = MapManager.Instance.WorldToGrid(d.transform.position);
-                if (Vector2Int.Distance(pos, dGrid) < 2f)
-                    return true;
-            }
-            return false;
+            if (index == 0) return center;
+            Vector2Int[] offsets = { new(1, 0), new(-1, 0), new(0, 1), new(0, -1), new(1, 1), new(-1, -1) };
+            var off = offsets[(index - 1) % offsets.Length];
+            var pos = center + off;
+            return MapManager.Instance.IsPassable(pos) ? pos : center;
         }
 
         private Vector2Int FindFreeAdjacentTile(Vector2Int center)
@@ -188,8 +280,7 @@ namespace DotWars.AI
             foreach (var off in offsets)
             {
                 var pos = center + off;
-                if (MapManager.Instance.IsPassable(pos))
-                    return pos;
+                if (MapManager.Instance.IsPassable(pos)) return pos;
             }
             return center;
         }
@@ -197,8 +288,7 @@ namespace DotWars.AI
         private List<Division> GetMyUnits()
         {
             return FindObjectsByType<Division>(FindObjectsSortMode.None)
-                .Where(d => d.OwnerIndex == BotIndex)
-                .ToList();
+                .Where(d => d.OwnerIndex == BotIndex).ToList();
         }
     }
 }

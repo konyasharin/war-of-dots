@@ -19,6 +19,8 @@ namespace DotWars.CameraSystem
         private Vector3 _dragOrigin;
         private bool _isDragging;
         private bool _boundsReady;
+
+        public static bool BlockZoom { get; set; }
         private float _mapMinX, _mapMaxX, _mapMinY, _mapMaxY;
 
         private void Awake()
@@ -105,6 +107,7 @@ namespace DotWars.CameraSystem
 
         private void HandleZoom()
         {
+            if (BlockZoom) return;
             float scroll = Input.GetAxis("Mouse ScrollWheel");
             if (Mathf.Approximately(scroll, 0f)) return;
 

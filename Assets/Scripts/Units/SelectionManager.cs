@@ -62,9 +62,10 @@ namespace DotWars.Units
                 }
             }
 
+            CameraSystem.CameraController.BlockZoom = _isLineForming;
+
             if (_isLineForming)
             {
-                // Scroll to adjust spacing
                 float scroll = Input.GetAxis("Mouse ScrollWheel");
                 if (!Mathf.Approximately(scroll, 0f))
                     _lineSpacing = Mathf.Clamp(_lineSpacing + scroll * 2f, 0.5f, 5f);

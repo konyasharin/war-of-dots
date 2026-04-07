@@ -157,16 +157,17 @@ namespace DotWars.Units
             bool isInfantry = Stats.divisionType == DivisionType.Infantry;
             float speedMod = terrain != null ? terrain.GetSpeedModifier(isInfantry) : 1f;
             float speed = Stats.baseSpeed * speedMod;
+            if (IsShip) speed *= 3f; // Ships are faster
 
             Vector2 direction = ((Vector2)_moveTarget - (Vector2)transform.position);
             if (direction.magnitude > 0.05f)
             {
-                _rigidbody.linearVelocity = direction.normalized * speed;
+                var newPos = Vector3.MoveTowards(transform.position, _moveTarget, speed * Time.deltaTime);
+                _rigidbody.MovePosition(newPos);
             }
             else
             {
-                _rigidbody.linearVelocity = Vector2.zero;
-                _rigidbody.position = _moveTarget;
+                _rigidbody.MovePosition(_moveTarget);
                 transform.position = _moveTarget;
                 _pathIndex++;
 
@@ -438,10 +439,5 @@ namespace DotWars.Units
             Destroy(gameObject);
         }
 
-        private void LateUpdate()
-        {
-            if (!IsMoving && _rigidbody != null)
-                _rigidbody.linearVelocity = Vector2.zero;
-        }
     }
 }

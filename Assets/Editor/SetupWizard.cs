@@ -30,8 +30,8 @@ public class SetupWizard : Editor
         var sprite = CreateWhiteSquareSprite();
         var tiles = CreateTiles(sprite);
         var terrainDatas = CreateTerrainDatas();
-        var infantryStats = CreateDivisionStats("InfantryStats", DivisionType.Infantry, 100f, 10f, 1.5f, 100);
-        var tankStats = CreateDivisionStats("TankStats", DivisionType.Tank, 200f, 20f, 1.5f, 200);
+        var infantryStats = CreateDivisionStats("InfantryStats", DivisionType.Infantry, 100f, 10f, 0.75f, 100);
+        var tankStats = CreateDivisionStats("TankStats", DivisionType.Tank, 200f, 20f, 0.75f, 200);
         var gameConfig = CreateGameConfig();
         var circleSprite = CreateCircleSprite();
         var ringSprite = CreateRingSprite();
@@ -456,15 +456,10 @@ public class SetupWizard : Editor
         hpFillSr.color = Color.green;
         hpFillSr.sortingOrder = 14;
 
-        // Physics — Dynamic but immovable by collision (high mass)
+        // Physics — Kinematic (no pushing, combat via OverlapCircle)
         var rb = go.AddComponent<Rigidbody2D>();
-        rb.bodyType = RigidbodyType2D.Dynamic;
-        rb.gravityScale = 0f;
-        rb.mass = 1000f;
-        rb.linearDamping = 50f;
-        rb.angularDamping = 50f;
+        rb.bodyType = RigidbodyType2D.Kinematic;
         rb.constraints = RigidbodyConstraints2D.FreezeRotation;
-        rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
 
         var collider = go.AddComponent<CircleCollider2D>();
         collider.radius = 0.4f;
