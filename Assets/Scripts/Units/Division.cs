@@ -74,7 +74,6 @@ namespace DotWars.Units
             else
                 _spriteRenderer.color = ownerIndex == 0 ? PlayerColor : BotColor;
 
-            // Tank visual: larger + border ring always visible
             if (isTank)
             {
                 transform.localScale = Vector3.one * 1.3f;
@@ -86,7 +85,14 @@ namespace DotWars.Units
                 }
             }
 
-            transform.position = MapManager.Instance.GridToWorld(gridPos);
+            // Set position via Rigidbody for Dynamic body
+            var worldPos = MapManager.Instance.GridToWorld(gridPos);
+            if (_rigidbody != null)
+            {
+                _rigidbody.position = worldPos;
+                _rigidbody.linearVelocity = Vector2.zero;
+            }
+            transform.position = worldPos;
 
             SetSelected(false);
             UpdateHPBar();
@@ -144,6 +150,7 @@ namespace DotWars.Units
             else
             {
                 _rigidbody.linearVelocity = Vector2.zero;
+                _rigidbody.position = _moveTarget;
                 transform.position = _moveTarget;
                 _pathIndex++;
 
