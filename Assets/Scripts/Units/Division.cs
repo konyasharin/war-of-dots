@@ -14,11 +14,13 @@ namespace DotWars.Units
         public bool IsMoving => _path != null && _pathIndex < _path.Count;
         public bool InCombat { get; private set; }
 
+        private Transform _visual;
         private SpriteRenderer _spriteRenderer;
         private SpriteRenderer _selectionRing;
         private SpriteRenderer _hpBarBg;
         private SpriteRenderer _hpBarFill;
         private SpriteRenderer _crackOverlay;
+        private SpriteRenderer _tankDot;
         private Rigidbody2D _rigidbody;
         private LineRenderer _lineRenderer;
 
@@ -27,19 +29,14 @@ namespace DotWars.Units
         private Vector3 _moveTarget;
         private bool _selected;
 
-        // Combat shake
         private float _shakeTimer;
-        private Vector3 _shakeOffset;
         private float _hpFillOffsetX;
 
-        // Crack sprites
         private Sprite _crackLightSprite;
         private Sprite _crackHeavySprite;
 
         private static readonly Color PlayerColor = new(0.2f, 0.5f, 1f);
         private static readonly Color BotColor = new(1f, 0.25f, 0.25f);
-        private static readonly Color PlayerTankColor = new(0.15f, 0.35f, 0.85f);
-        private static readonly Color BotTankColor = new(0.85f, 0.15f, 0.15f);
 
         public void Initialize(DivisionStats stats, int ownerIndex, Vector2Int gridPos)
         {
@@ -48,14 +45,25 @@ namespace DotWars.Units
             CurrentHP = stats.maxHP;
             CurrentMorale = GameManager.Instance.Config.maxMorale;
 
-            _spriteRenderer = GetComponent<SpriteRenderer>();
             _rigidbody = GetComponent<Rigidbody2D>();
             _lineRenderer = GetComponent<LineRenderer>();
             if (_lineRenderer != null)
                 _lineRenderer.positionCount = 0;
 
-            var ringT = transform.Find("SelectionRing");
+            _visual = transform.Find("Visual");
+            if (_visual != null)
+                _spriteRenderer = _visual.GetComponent<SpriteRenderer>();
+            else
+                _spriteRenderer = GetComponent<SpriteRenderer>();
+
+            var ringT = _visual != null ? _visual.Find("SelectionRing") : transform.Find("SelectionRing");
             if (ringT != null) _selectionRing = ringT.GetComponent<SpriteRenderer>();
+
+            var tankDotT = _visual != null ? _visual.Find("TankDot") : transform.Find("TankDot");
+            if (tankDotT != null) _tankDot = tankDotT.GetComponent<SpriteRenderer>();
+
+            var crackT = _visual != null ? _visual.Find("CrackOverlay") : transform.Find("CrackOverlay");
+            if (crackT != null) _crackOverlay = crackT.GetComponent<SpriteRenderer>();
 
             var hpBgT = transform.Find("HPBarBg");
             if (hpBgT != null) _hpBarBg = hpBgT.GetComponent<SpriteRenderer>();
@@ -63,30 +71,17 @@ namespace DotWars.Units
             var hpFillT = transform.Find("HPBarFill");
             if (hpFillT != null) _hpBarFill = hpFillT.GetComponent<SpriteRenderer>();
 
-            var crackT = transform.Find("CrackOverlay");
-            if (crackT != null) _crackOverlay = crackT.GetComponent<SpriteRenderer>();
-
             _crackLightSprite = Resources.Load<Sprite>("Sprites/CrackLight");
             _crackHeavySprite = Resources.Load<Sprite>("Sprites/CrackHeavy");
 
+            _spriteRenderer.color = ownerIndex == 0 ? PlayerColor : BotColor;
+
+            // Tank: show center dot
             bool isTank = stats.divisionType == DivisionType.Tank;
-            if (isTank)
-                _spriteRenderer.color = ownerIndex == 0 ? PlayerTankColor : BotTankColor;
-            else
-                _spriteRenderer.color = ownerIndex == 0 ? PlayerColor : BotColor;
+            if (isTank && _tankDot != null)
+                _tankDot.enabled = true;
 
-            if (isTank)
-            {
-                transform.localScale = Vector3.one * 1.3f;
-                var borderT = transform.Find("TankBorder");
-                if (borderT != null)
-                {
-                    var borderSr = borderT.GetComponent<SpriteRenderer>();
-                    if (borderSr != null) borderSr.enabled = true;
-                }
-            }
-
-            // Set position via Rigidbody for Dynamic body
+            // Set position
             var worldPos = MapManager.Instance.GridToWorld(gridPos);
             if (_rigidbody != null)
             {
@@ -181,7 +176,6 @@ namespace DotWars.Units
                 var other = col.GetComponent<Division>();
                 if (other == null || other.OwnerIndex == OwnerIndex) continue;
 
-                // Enemy nearby — combat!
                 InCombat = true;
                 float damage = Stats.damagePerSec * Time.deltaTime;
                 var terrain = MapManager.Instance.GetTerrainAtWorld(transform.position);
@@ -190,13 +184,10 @@ namespace DotWars.Units
                 float moraleMod = 1f + CurrentMorale / 200f;
 
                 other.TakeDamage(damage * dmgMod * moraleMod);
-
-                // Shake
                 _shakeTimer = 0.1f;
                 break;
             }
 
-            // Morale
             if (InCombat)
             {
                 var config = GameManager.Instance.Config;
@@ -206,13 +197,13 @@ namespace DotWars.Units
 
         private void ProcessShake()
         {
-            // Shake only affects child visual objects, not root transform
-            var ringT = _selectionRing != null ? _selectionRing.transform.parent : null;
+            if (_visual == null) return;
+
             if (_shakeTimer > 0)
             {
                 _shakeTimer -= Time.deltaTime;
-                float intensity = 0.05f;
-                _shakeOffset = new Vector3(
+                float intensity = 0.06f;
+                _visual.localPosition = new Vector3(
                     Random.Range(-intensity, intensity),
                     Random.Range(-intensity, intensity),
                     0
@@ -220,14 +211,8 @@ namespace DotWars.Units
             }
             else
             {
-                _shakeOffset = Vector3.zero;
+                _visual.localPosition = Vector3.zero;
             }
-
-            // Apply shake to visual children only
-            if (_hpBarBg != null)
-                _hpBarBg.transform.localPosition = new Vector3(0, 0.55f, 0) + _shakeOffset;
-            if (_hpBarFill != null)
-                _hpBarFill.transform.localPosition = new Vector3(_hpFillOffsetX, 0.55f, 0) + _shakeOffset;
         }
 
         private void UpdatePathLine()
@@ -284,16 +269,13 @@ namespace DotWars.Units
 
             float ratio = CurrentHP / Stats.maxHP;
 
-            // Scale fill bar
             var scale = _hpBarFill.transform.localScale;
-            scale.x = ratio;
+            scale.x = ratio * 0.6f;
             _hpBarFill.transform.localScale = scale;
 
-            // Offset to keep left-aligned
             _hpFillOffsetX = -(1f - ratio) * 0.3f;
             _hpBarFill.transform.localPosition = new Vector3(_hpFillOffsetX, 0.55f, 0);
 
-            // Color: green -> yellow -> red
             Color barColor;
             if (ratio > 0.5f)
                 barColor = Color.Lerp(Color.yellow, Color.green, (ratio - 0.5f) * 2f);

@@ -28,8 +28,8 @@ public class SetupWizard : Editor
         var sprite = CreateWhiteSquareSprite();
         var tiles = CreateTiles(sprite);
         var terrainDatas = CreateTerrainDatas();
-        var infantryStats = CreateDivisionStats("InfantryStats", DivisionType.Infantry, 100f, 10f, 6f, 100);
-        var tankStats = CreateDivisionStats("TankStats", DivisionType.Tank, 200f, 20f, 6f, 200);
+        var infantryStats = CreateDivisionStats("InfantryStats", DivisionType.Infantry, 100f, 10f, 3f, 100);
+        var tankStats = CreateDivisionStats("TankStats", DivisionType.Tank, 200f, 20f, 3f, 200);
         var gameConfig = CreateGameConfig();
         var circleSprite = CreateCircleSprite();
         var ringSprite = CreateRingSprite();
@@ -288,6 +288,8 @@ public class SetupWizard : Editor
 
     private static GameObject CreateDivisionPrefab(Sprite circleSprite, Sprite ringSprite)
     {
+        var squareSprite = CreateWhiteSquareSprite();
+
         var path = "Assets/Resources/Prefabs/Division.prefab";
         var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
         if (existing != null)
@@ -299,14 +301,19 @@ public class SetupWizard : Editor
         var go = new GameObject("Division");
         go.layer = divisionLayer;
 
-        // Main sprite
-        var sr = go.AddComponent<SpriteRenderer>();
+        // Visual container (for shake effect)
+        var visualGo = new GameObject("Visual");
+        visualGo.transform.SetParent(go.transform);
+        visualGo.transform.localPosition = Vector3.zero;
+
+        // Main sprite — child of Visual
+        var sr = visualGo.AddComponent<SpriteRenderer>();
         sr.sprite = circleSprite;
         sr.sortingOrder = 10;
 
-        // Selection ring
+        // Selection ring — child of Visual
         var ringGo = new GameObject("SelectionRing");
-        ringGo.transform.SetParent(go.transform);
+        ringGo.transform.SetParent(visualGo.transform);
         ringGo.transform.localPosition = Vector3.zero;
         ringGo.transform.localScale = Vector3.one * 1.4f;
         var ringSr = ringGo.AddComponent<SpriteRenderer>();
@@ -315,42 +322,42 @@ public class SetupWizard : Editor
         ringSr.sortingOrder = 9;
         ringSr.enabled = false;
 
-        // Tank border (thicker ring, visible only for tanks — Division.Initialize enables it)
-        var borderGo = new GameObject("TankBorder");
-        borderGo.transform.SetParent(go.transform);
-        borderGo.transform.localPosition = Vector3.zero;
-        borderGo.transform.localScale = Vector3.one * 1.15f;
-        var borderSr = borderGo.AddComponent<SpriteRenderer>();
-        borderSr.sprite = ringSprite;
-        borderSr.color = new Color(1f, 1f, 1f, 0.6f);
-        borderSr.sortingOrder = 11;
-        borderSr.enabled = false;
+        // Tank dot (black circle in center) — child of Visual
+        var tankDotGo = new GameObject("TankDot");
+        tankDotGo.transform.SetParent(visualGo.transform);
+        tankDotGo.transform.localPosition = Vector3.zero;
+        tankDotGo.transform.localScale = Vector3.one * 0.4f;
+        var tankDotSr = tankDotGo.AddComponent<SpriteRenderer>();
+        tankDotSr.sprite = circleSprite;
+        tankDotSr.color = new Color(0.05f, 0.05f, 0.05f, 1f);
+        tankDotSr.sortingOrder = 11;
+        tankDotSr.enabled = false;
 
-        // Crack overlay
+        // Crack overlay — child of Visual
         var crackGo = new GameObject("CrackOverlay");
-        crackGo.transform.SetParent(go.transform);
+        crackGo.transform.SetParent(visualGo.transform);
         crackGo.transform.localPosition = Vector3.zero;
         var crackSr = crackGo.AddComponent<SpriteRenderer>();
         crackSr.sortingOrder = 12;
         crackSr.enabled = false;
 
-        // HP bar background
+        // HP bar background — child of root (NOT Visual, so it doesn't shake)
         var hpBgGo = new GameObject("HPBarBg");
         hpBgGo.transform.SetParent(go.transform);
         hpBgGo.transform.localPosition = new Vector3(0, 0.55f, 0);
         hpBgGo.transform.localScale = new Vector3(0.6f, 0.08f, 1f);
         var hpBgSr = hpBgGo.AddComponent<SpriteRenderer>();
-        hpBgSr.sprite = circleSprite; // reuse circle as a rounded rect-ish bar
+        hpBgSr.sprite = squareSprite;
         hpBgSr.color = new Color(0.15f, 0.15f, 0.15f, 0.8f);
         hpBgSr.sortingOrder = 13;
 
-        // HP bar fill
+        // HP bar fill — child of root
         var hpFillGo = new GameObject("HPBarFill");
         hpFillGo.transform.SetParent(go.transform);
         hpFillGo.transform.localPosition = new Vector3(0, 0.55f, 0);
         hpFillGo.transform.localScale = new Vector3(0.6f, 0.06f, 1f);
         var hpFillSr = hpFillGo.AddComponent<SpriteRenderer>();
-        hpFillSr.sprite = circleSprite;
+        hpFillSr.sprite = squareSprite;
         hpFillSr.color = Color.green;
         hpFillSr.sortingOrder = 14;
 
