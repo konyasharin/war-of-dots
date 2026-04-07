@@ -41,7 +41,6 @@ namespace DotWars.Map
             {
                 _configByName[config.terrainType.ToString()] = config;
             }
-            Debug.Log($"[MapManager] Loaded {configs.Length} terrain configs from Resources");
         }
 
         private void BuildTerrainGrid()
@@ -75,7 +74,6 @@ namespace DotWars.Map
                 }
             }
 
-            Debug.Log($"[MapManager] Grid: {_width}x{_height}, {mapped} mapped, {unmapped} unmapped, {nullTiles} empty");
         }
 
         public TerrainConfig GetTerrainAt(Vector2Int gridPos)

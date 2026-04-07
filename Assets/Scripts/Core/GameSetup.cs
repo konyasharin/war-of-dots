@@ -33,9 +33,6 @@ namespace DotWars.Core
                 return;
             }
 
-            Debug.Log($"[GameSetup] GridToWorld(5,8) = {map.GridToWorld(new Vector2Int(5, 8))}");
-            Debug.Log($"[GameSetup] GridToWorld(24,8) = {map.GridToWorld(new Vector2Int(24, 8))}");
-
             // Player (blue, ownerIndex=0) — left side
             spawner.Spawn(DivisionType.Infantry, 0, new Vector2Int(5, 8));
             spawner.Spawn(DivisionType.Infantry, 0, new Vector2Int(6, 10));
