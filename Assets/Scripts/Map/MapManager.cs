@@ -101,6 +101,9 @@ namespace DotWars.Map
             return terrain != null && terrain.isPassable;
         }
 
+        public Vector3 WorldMin => terrainTilemap.GetCellCenterWorld(new Vector3Int(_bounds.xMin, _bounds.yMin, 0));
+        public Vector3 WorldMax => terrainTilemap.GetCellCenterWorld(new Vector3Int(_bounds.xMax - 1, _bounds.yMax - 1, 0));
+
         public Vector3 GridToWorld(Vector2Int gridPos)
         {
             var cellPos = new Vector3Int(gridPos.x, gridPos.y, 0);

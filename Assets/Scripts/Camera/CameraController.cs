@@ -94,18 +94,25 @@ namespace DotWars.CameraSystem
             var map = MapManager.Instance;
             if (map == null) return;
 
-            var bounds = map.Bounds;
+            var wMin = map.WorldMin;
+            var wMax = map.WorldMax;
+            float margin = 1f;
+
             float halfH = _camera.orthographicSize;
             float halfW = halfH * _camera.aspect;
 
-            float minX = bounds.xMin + halfW;
-            float maxX = bounds.xMax - halfW;
-            float minY = bounds.yMin + halfH;
-            float maxY = bounds.yMax - halfH;
+            float mapMinX = wMin.x - margin;
+            float mapMaxX = wMax.x + margin;
+            float mapMinY = wMin.y - margin;
+            float mapMaxY = wMax.y + margin;
 
-            // If map is smaller than camera view, center on map
-            if (minX > maxX) minX = maxX = (bounds.xMin + bounds.xMax) * 0.5f;
-            if (minY > maxY) minY = maxY = (bounds.yMin + bounds.yMax) * 0.5f;
+            float minX = mapMinX + halfW;
+            float maxX = mapMaxX - halfW;
+            float minY = mapMinY + halfH;
+            float maxY = mapMaxY - halfH;
+
+            if (minX > maxX) minX = maxX = (mapMinX + mapMaxX) * 0.5f;
+            if (minY > maxY) minY = maxY = (mapMinY + mapMaxY) * 0.5f;
 
             var pos = transform.position;
             pos.x = Mathf.Clamp(pos.x, minX, maxX);
