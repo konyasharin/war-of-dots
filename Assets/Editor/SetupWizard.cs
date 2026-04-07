@@ -163,17 +163,17 @@ public class SetupWizard : Editor
         return tiles;
     }
 
-    private static DotWars.Map.TerrainData[] CreateTerrainDatas()
+    private static DotWars.Map.TerrainConfig[] CreateTerrainDatas()
     {
-        var datas = new DotWars.Map.TerrainData[TerrainDefs.Length];
+        var datas = new DotWars.Map.TerrainConfig[TerrainDefs.Length];
         for (int i = 0; i < TerrainDefs.Length; i++)
         {
             var def = TerrainDefs[i];
             var path = $"Assets/ScriptableObjects/Terrain/{def.type}Data.asset";
-            var data = AssetDatabase.LoadAssetAtPath<DotWars.Map.TerrainData>(path);
+            var data = AssetDatabase.LoadAssetAtPath<DotWars.Map.TerrainConfig>(path);
             if (data == null)
             {
-                data = ScriptableObject.CreateInstance<DotWars.Map.TerrainData>();
+                data = ScriptableObject.CreateInstance<DotWars.Map.TerrainConfig>();
                 data.terrainType = def.type;
                 data.isPassable = def.passable;
                 data.speedModifier = def.speed;
@@ -280,7 +280,7 @@ public class SetupWizard : Editor
     }
 
     private static void CreateGameScene(
-        Tile[] tiles, DotWars.Map.TerrainData[] terrainDatas,
+        Tile[] tiles, DotWars.Map.TerrainConfig[] terrainDatas,
         GameConfig gameConfig, GameObject divisionPrefab,
         DivisionStats infantryStats, DivisionStats tankStats)
     {

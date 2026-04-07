@@ -10,7 +10,7 @@ namespace DotWars.Map
         [SerializeField] private Tilemap terrainTilemap;
         [SerializeField] private TerrainTileMapping[] tileMappings;
 
-        private TerrainData[,] _terrainGrid;
+        private TerrainConfig[,] _terrainGrid;
         private int _width;
         private int _height;
         private BoundsInt _bounds;
@@ -37,7 +37,7 @@ namespace DotWars.Map
             _bounds = terrainTilemap.cellBounds;
             _width = _bounds.size.x;
             _height = _bounds.size.y;
-            _terrainGrid = new TerrainData[_width, _height];
+            _terrainGrid = new TerrainConfig[_width, _height];
 
             Debug.Log($"[MapManager] Bounds: {_bounds}, Size: {_width}x{_height}, Mappings: {tileMappings?.Length ?? 0}");
 
@@ -58,7 +58,7 @@ namespace DotWars.Map
 
                     if (tile == null) { nullTiles++; continue; }
 
-                    _terrainGrid[x, y] = GetTerrainDataForTile(tile);
+                    _terrainGrid[x, y] = GetTerrainConfigForTile(tile);
                     if (_terrainGrid[x, y] == null) unmapped++;
                     else mapped++;
                 }
@@ -67,7 +67,7 @@ namespace DotWars.Map
             Debug.Log($"[MapManager] Grid built: {mapped} mapped, {unmapped} unmapped, {nullTiles} null tiles");
         }
 
-        private TerrainData GetTerrainDataForTile(TileBase tile)
+        private TerrainConfig GetTerrainConfigForTile(TileBase tile)
         {
             if (tile == null) return null;
 
@@ -80,7 +80,7 @@ namespace DotWars.Map
             return null;
         }
 
-        public TerrainData GetTerrainAt(Vector2Int gridPos)
+        public TerrainConfig GetTerrainAt(Vector2Int gridPos)
         {
             int x = gridPos.x - _bounds.xMin;
             int y = gridPos.y - _bounds.yMin;
@@ -91,7 +91,7 @@ namespace DotWars.Map
             return _terrainGrid[x, y];
         }
 
-        public TerrainData GetTerrainAtWorld(Vector3 worldPos)
+        public TerrainConfig GetTerrainAtWorld(Vector3 worldPos)
         {
             var cellPos = terrainTilemap.WorldToCell(worldPos);
             return GetTerrainAt(new Vector2Int(cellPos.x, cellPos.y));
@@ -127,6 +127,6 @@ namespace DotWars.Map
     public struct TerrainTileMapping
     {
         public TileBase tile;
-        public TerrainData terrainData;
+        public TerrainConfig terrainData;
     }
 }

@@ -2,8 +2,8 @@ using UnityEngine;
 
 namespace DotWars.Map
 {
-    [CreateAssetMenu(fileName = "TerrainData", menuName = "DotWars/Terrain Data")]
-    public class TerrainData : ScriptableObject
+    [CreateAssetMenu(fileName = "TerrainConfig", menuName = "DotWars/Terrain Data")]
+    public class TerrainConfig : ScriptableObject
     {
         public TerrainType terrainType;
 
