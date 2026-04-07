@@ -111,6 +111,33 @@ namespace DotWars.Map
             }
         }
 
+        public List<Vector2Int> GetFrontlineTiles(int ownerIndex)
+        {
+            var result = new List<Vector2Int>();
+            foreach (var region in _regions)
+            {
+                if (region.OwnerIndex != ownerIndex) continue;
+                foreach (var tile in region.Tiles)
+                {
+                    // Frontline = our tile with a neighbor belonging to enemy/neutral
+                    Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
+                    foreach (var d in dirs)
+                    {
+                        var neighbor = tile + d;
+                        if (_tileToRegion.TryGetValue(neighbor, out var neighborRegion))
+                        {
+                            if (neighborRegion.OwnerIndex != ownerIndex)
+                            {
+                                result.Add(tile);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            return result;
+        }
+
         public bool IsBorderTile(Vector2Int tile, Region region)
         {
             Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };

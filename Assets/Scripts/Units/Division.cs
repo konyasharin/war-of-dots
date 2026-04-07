@@ -250,7 +250,7 @@ namespace DotWars.Units
                     break;
                 }
 
-                float damage = Stats.damagePerSec * Time.deltaTime;
+                float damage = Stats.damagePerSec * Time.deltaTime * 0.125f;
                 var terrain = MapManager.Instance.GetTerrainAtWorld(transform.position);
                 bool isTank = Stats.divisionType == DivisionType.Tank;
                 float dmgMod = terrain != null ? terrain.GetDamageModifier(isTank) : 1f;
