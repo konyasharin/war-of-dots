@@ -161,16 +161,16 @@ namespace DotWars.Units
             float speed = Stats.baseSpeed * speedMod;
             if (IsShip) speed *= 3f;
 
-            // Stuck detection: if barely moved in 0.5s, steer around
+            // Stuck detection
             _stuckTimer += Time.deltaTime;
-            if (_stuckTimer > 0.5f)
+            if (_stuckTimer > 0.8f)
             {
                 float moved = Vector3.Distance(transform.position, _lastStuckCheckPos);
                 if (moved < 0.02f && _path != null)
                 {
-                    // Try to nudge sideways to unstick
+                    // Nudge sideways
                     Vector2 toTarget = ((Vector2)_moveTarget - (Vector2)transform.position).normalized;
-                    Vector2 side = new Vector2(-toTarget.y, toTarget.x) * 0.3f;
+                    Vector2 side = new Vector2(-toTarget.y, toTarget.x) * 0.4f;
                     if (Random.value > 0.5f) side = -side;
                     transform.position += (Vector3)side;
                 }
@@ -178,15 +178,33 @@ namespace DotWars.Units
                 _stuckTimer = 0;
             }
 
-            // Avoid friendly units: steer away from nearby allies
-            var avoidOffset = CalculateAvoidance();
-
             Vector2 direction = ((Vector2)_moveTarget - (Vector2)transform.position);
             if (direction.magnitude > 0.05f)
             {
-                Vector2 moveDir = direction.normalized + avoidOffset * 0.5f;
-                var newPos = (Vector2)transform.position + moveDir.normalized * speed * Time.deltaTime;
-                _rigidbody.MovePosition(newPos);
+                // Calculate desired position
+                Vector2 desiredPos = (Vector2)transform.position + direction.normalized * speed * Time.deltaTime;
+
+                // Check if any unit blocks the desired position
+                bool blocked = false;
+                var nearby = Physics2D.OverlapCircleAll(desiredPos, 0.35f);
+                foreach (var col in nearby)
+                {
+                    if (col.gameObject == gameObject) continue;
+                    var other = col.GetComponent<Division>();
+                    if (other == null) continue;
+
+                    // Blocked by any unit — steer around
+                    blocked = true;
+                    Vector2 away = (desiredPos - (Vector2)other.transform.position).normalized;
+                    Vector2 perpendicular = new Vector2(-direction.normalized.y, direction.normalized.x);
+                    float dot = Vector2.Dot(away, perpendicular);
+                    Vector2 steerDir = (dot >= 0 ? perpendicular : -perpendicular);
+
+                    desiredPos = (Vector2)transform.position + (direction.normalized * 0.3f + steerDir * 0.7f).normalized * speed * Time.deltaTime;
+                    break;
+                }
+
+                _rigidbody.MovePosition(desiredPos);
             }
             else
             {
@@ -214,27 +232,6 @@ namespace DotWars.Units
             }
 
             UpdatePathLineStart();
-        }
-
-        private Vector2 CalculateAvoidance()
-        {
-            Vector2 avoidDir = Vector2.zero;
-            var colliders = Physics2D.OverlapCircleAll(transform.position, 0.7f);
-            foreach (var col in colliders)
-            {
-                if (col.gameObject == gameObject) continue;
-                var other = col.GetComponent<Division>();
-                if (other == null || other.OwnerIndex != OwnerIndex) continue;
-
-                Vector2 away = (Vector2)transform.position - (Vector2)other.transform.position;
-                float dist = away.magnitude;
-                if (dist < 0.01f) away = Random.insideUnitCircle;
-                else away /= dist;
-
-                float strength = 1f - Mathf.Clamp01(dist / 0.7f);
-                avoidDir += away * strength;
-            }
-            return avoidDir;
         }
 
         private void ProcessCombat()
