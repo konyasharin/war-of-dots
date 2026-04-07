@@ -8,6 +8,7 @@ namespace DotWars.UI
         private GUIStyle _speedBtnStyle;
         private GUIStyle _speedBtnActiveStyle;
         private GUIStyle _labelStyle;
+        private GUIStyle _hintStyle;
         private GUIStyle _timeStyle;
         private bool _stylesInit;
         private float _gameMinutes; // in-game minutes elapsed
@@ -40,6 +41,9 @@ namespace DotWars.UI
                 alignment = TextAnchor.MiddleCenter
             };
             _timeStyle.normal.textColor = new Color(1f, 0.95f, 0.8f);
+
+            _hintStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, alignment = TextAnchor.MiddleCenter };
+            _hintStyle.normal.textColor = new Color(0.7f, 0.7f, 0.7f);
 
             _stylesInit = true;
         }
@@ -127,9 +131,7 @@ namespace DotWars.UI
             // Keyboard hint
             GUI.color = Color.white;
             string hint = current == 0 ? "PAUSED — Space to resume" : $"Speed: {labels[current]} — Space to pause";
-            _labelStyle.fontSize = 18;
-            GUI.Label(new Rect(x - 8, by + 48, totalW + 16, 22), hint, _labelStyle);
-            _labelStyle.fontSize = 20;
+            GUI.Label(new Rect(x - 8, by + 48, totalW + 16, 22), hint, _hintStyle);
         }
 
         private void DrawBorder(Rect r, float t)

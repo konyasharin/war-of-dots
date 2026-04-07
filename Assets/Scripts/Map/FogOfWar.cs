@@ -35,6 +35,11 @@ namespace DotWars.Map
             Instance = this;
         }
 
+        public void SetFogTilemap(Tilemap tilemap)
+        {
+            fogTilemap = tilemap;
+        }
+
         private void Start()
         {
             var map = MapManager.Instance;

@@ -50,12 +50,7 @@ namespace DotWars.Map
                     var terrain = map.GetTerrainAt(neighbor);
                     float moveCost = dir.x != 0 && dir.y != 0 ? 1.414f : 1f;
 
-                    if (isShip)
-                    {
-                        // Ships move at constant speed on water
-                        moveCost *= 1f;
-                    }
-                    else
+                    if (!isShip)
                     {
                         float speedMod = terrain != null ? terrain.GetSpeedModifier(isInfantry) : 1f;
                         if (speedMod <= 0f) continue;

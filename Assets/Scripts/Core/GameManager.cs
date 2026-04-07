@@ -65,7 +65,8 @@ namespace DotWars.Core
         public void SetTimeScaleIndex(int index)
         {
             _timeScaleIndex = Mathf.Clamp(index, 0, _timeScales.Length - 1);
-            Time.timeScale = _timeScales[_timeScaleIndex];
+            if (State == GameState.Playing || _timeScaleIndex == 0)
+                Time.timeScale = _timeScales[_timeScaleIndex];
         }
 
         public string[] GetSpeedLabels()

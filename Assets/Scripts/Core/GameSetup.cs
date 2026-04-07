@@ -78,10 +78,7 @@ namespace DotWars.Core
             fogRenderer.sortingOrder = 15;
 
             var fogMgr = new GameObject("FogOfWar").AddComponent<FogOfWar>();
-            // Set fogTilemap via reflection since it's serialized
-            var field = typeof(FogOfWar).GetField("fogTilemap", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            if (field != null)
-                field.SetValue(fogMgr, fogTilemap);
+            fogMgr.SetFogTilemap(fogTilemap);
         }
 
         private List<Region> SetupCitiesAndRegions()

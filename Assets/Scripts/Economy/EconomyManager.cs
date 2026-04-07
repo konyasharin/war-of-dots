@@ -23,12 +23,6 @@ namespace DotWars.Economy
             Gold = new float[] { startGold, startGold };
         }
 
-        private void Update()
-        {
-            if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing) return;
-
-            // Income from cities is handled by City components
-        }
 
         public void AddGold(int playerIndex, float amount)
         {

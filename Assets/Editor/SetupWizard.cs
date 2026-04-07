@@ -596,54 +596,7 @@ public class SetupWizard : Editor
         }
     }
 
-    private static void CreateCityObject(string name, Vector3 pos, int owner, bool isCapital, Sprite circleSprite, Sprite flagSprite, Sprite ringSprite)
-    {
-        var go = new GameObject(name);
-        go.transform.position = pos;
-
-        // Outline ring
-        var outlineGo = new GameObject("Outline");
-        outlineGo.transform.SetParent(go.transform);
-        outlineGo.transform.localPosition = Vector3.zero;
-        outlineGo.transform.localScale = Vector3.one * 1.1f;
-        var outlineSr = outlineGo.AddComponent<SpriteRenderer>();
-        outlineSr.sprite = ringSprite;
-        outlineSr.sortingOrder = 2;
-
-        // Flag
-        var flagGo = new GameObject("Flag");
-        flagGo.transform.SetParent(go.transform);
-        flagGo.transform.localPosition = new Vector3(0.2f, 0.3f, 0);
-        flagGo.transform.localScale = Vector3.one * 0.7f;
-        var flagSr = flagGo.AddComponent<SpriteRenderer>();
-        flagSr.sprite = flagSprite;
-        flagSr.sortingOrder = 3;
-
-        var city = go.AddComponent<City>();
-        city.Initialize(owner, isCapital);
-    }
-
-    private static void CreatePortObject(string name, Vector3 pos, Sprite circleSprite, Sprite ringSprite)
-    {
-        var go = new GameObject(name);
-        go.transform.position = pos;
-
-        // Outline ring
-        var outlineGo = new GameObject("Outline");
-        outlineGo.transform.SetParent(go.transform);
-        outlineGo.transform.localPosition = Vector3.zero;
-        outlineGo.transform.localScale = Vector3.one * 1.1f;
-        var outlineSr = outlineGo.AddComponent<SpriteRenderer>();
-        outlineSr.sprite = ringSprite;
-        outlineSr.color = new Color(0.8f, 0.6f, 0.2f, 0.5f);
-        outlineSr.sortingOrder = 2;
-
-        var port = go.AddComponent<Port>();
-        port.Initialize();
-    }
-
-    // Found port positions (set during map painting, read by GameSetup)
-    public static Vector2Int[] FoundPortPositions { get; private set; }
+    // NOTE: Cities and ports are created at runtime by GameSetup, not here
 
     private static void PaintLargeMap(Tilemap tilemap, Tile[] tiles)
     {

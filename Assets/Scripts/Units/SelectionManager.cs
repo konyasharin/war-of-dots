@@ -44,7 +44,7 @@ namespace DotWars.Units
 
         private void Update()
         {
-            if (GameManager.Instance.State != GameState.Playing) return;
+            if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing) return;
 
             HandleBoxSelection();
 

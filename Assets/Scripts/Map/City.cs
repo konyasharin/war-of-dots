@@ -33,48 +33,47 @@ namespace DotWars.Map
             UpdateVisuals();
         }
 
+        private float _checkTimer;
+        private const float CheckInterval = 0.2f;
+
         private void Update()
         {
             if (GameManager.Instance == null || GameManager.Instance.State != GameState.Playing) return;
+            if (GameManager.Instance.Config == null) return;
 
-            // Income ONLY when a friendly unit is present
-            bool hasFriendlyUnit = false;
+            _checkTimer += Time.deltaTime;
+            if (_checkTimer < CheckInterval) return;
+            _checkTimer = 0;
+
+            // Single physics query for both income and capture
             var colliders = Physics2D.OverlapCircleAll(transform.position, 0.7f);
+            bool hasFriendlyUnit = false;
+            Division enemyUnit = null;
+
             foreach (var col in colliders)
             {
                 var div = col.GetComponent<Division>();
-                if (div != null && div.OwnerIndex == _ownerIndex)
-                {
-                    hasFriendlyUnit = true;
-                    break;
-                }
+                if (div == null) continue;
+                if (div.OwnerIndex == _ownerIndex) hasFriendlyUnit = true;
+                else if (enemyUnit == null) enemyUnit = div;
             }
 
+            // Income (only with garrison)
             if (hasFriendlyUnit && _ownerIndex >= 0 && EconomyManager.Instance != null)
             {
                 var config = GameManager.Instance.Config;
                 float income = _isCapital ? config.capitalIncomePerSec : config.cityIncomePerSec;
-                EconomyManager.Instance.AddGold(_ownerIndex, income * Time.deltaTime);
+                EconomyManager.Instance.AddGold(_ownerIndex, income * CheckInterval);
             }
 
-            CheckCapture();
-        }
-
-        private void CheckCapture()
-        {
-            var colliders = Physics2D.OverlapCircleAll(transform.position, 0.5f);
-            foreach (var col in colliders)
+            // Capture
+            if (enemyUnit != null)
             {
-                var div = col.GetComponent<Division>();
-                if (div == null || div.OwnerIndex == _ownerIndex) continue;
-
-                // Capture city + entire region
-                int newOwner = div.OwnerIndex;
+                int newOwner = enemyUnit.OwnerIndex;
                 if (_region != null)
                     RegionManager.Instance?.CaptureRegion(_region, newOwner);
                 else
                     SetOwner(newOwner);
-                break;
             }
         }
 

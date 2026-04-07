@@ -86,6 +86,7 @@ namespace DotWars.Units
             _crackHeavySprite = Resources.Load<Sprite>("Sprites/CrackHeavy");
             _shipSprite = Resources.Load<Sprite>("Sprites/Ship");
             _shipOutlineSprite = Resources.Load<Sprite>("Sprites/ShipOutline");
+            if (_spriteRenderer == null) { Debug.LogError("[Division] No SpriteRenderer!"); return; }
             _originalSprite = _spriteRenderer.sprite;
 
             var outlineT = _visual != null ? _visual.Find("Outline") : transform.Find("Outline");
@@ -155,6 +156,7 @@ namespace DotWars.Units
 
         private void ProcessMovement()
         {
+            if (_rigidbody == null) return;
             var terrain = MapManager.Instance.GetTerrainAtWorld(transform.position);
             bool isInfantry = Stats.divisionType == DivisionType.Infantry;
             float speedMod = terrain != null ? terrain.GetSpeedModifier(isInfantry) : 1f;
@@ -250,6 +252,7 @@ namespace DotWars.Units
                     break;
                 }
 
+                // Intentional 0.125x: makes battles last ~80s for infantry vs infantry
                 float damage = Stats.damagePerSec * Time.deltaTime * 0.125f;
                 var terrain = MapManager.Instance.GetTerrainAtWorld(transform.position);
                 bool isTank = Stats.divisionType == DivisionType.Tank;
@@ -472,6 +475,7 @@ namespace DotWars.Units
 
         private void Die()
         {
+            SetSelected(false);
             EventBus.OnDivisionDestroyed?.Invoke(gameObject);
             Destroy(gameObject);
         }
