@@ -1,4 +1,5 @@
 using UnityEngine;
+using DotWars.Map;
 
 namespace DotWars.CameraSystem
 {
@@ -13,10 +14,6 @@ namespace DotWars.CameraSystem
         [SerializeField] private float zoomSpeed = 5f;
         [SerializeField] private float minZoom = 3f;
         [SerializeField] private float maxZoom = 15f;
-
-        [Header("Bounds")]
-        [SerializeField] private Vector2 boundsMin = new(-50, -50);
-        [SerializeField] private Vector2 boundsMax = new(50, 50);
 
         private UnityEngine.Camera _camera;
         private Vector3 _dragOrigin;
@@ -36,7 +33,7 @@ namespace DotWars.CameraSystem
 
             HandleMiddleMouseDrag();
             HandleZoom();
-            ClampPosition();
+            ClampToMap();
         }
 
         private void HandleKeyboardPan()
@@ -92,11 +89,27 @@ namespace DotWars.CameraSystem
             _camera.orthographicSize = Mathf.Clamp(newSize, minZoom, maxZoom);
         }
 
-        private void ClampPosition()
+        private void ClampToMap()
         {
+            var map = MapManager.Instance;
+            if (map == null) return;
+
+            var bounds = map.Bounds;
+            float halfH = _camera.orthographicSize;
+            float halfW = halfH * _camera.aspect;
+
+            float minX = bounds.xMin + halfW;
+            float maxX = bounds.xMax - halfW;
+            float minY = bounds.yMin + halfH;
+            float maxY = bounds.yMax - halfH;
+
+            // If map is smaller than camera view, center on map
+            if (minX > maxX) minX = maxX = (bounds.xMin + bounds.xMax) * 0.5f;
+            if (minY > maxY) minY = maxY = (bounds.yMin + bounds.yMax) * 0.5f;
+
             var pos = transform.position;
-            pos.x = Mathf.Clamp(pos.x, boundsMin.x, boundsMax.x);
-            pos.y = Mathf.Clamp(pos.y, boundsMin.y, boundsMax.y);
+            pos.x = Mathf.Clamp(pos.x, minX, maxX);
+            pos.y = Mathf.Clamp(pos.y, minY, maxY);
             transform.position = pos;
         }
     }

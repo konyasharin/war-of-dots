@@ -28,8 +28,8 @@ public class SetupWizard : Editor
         var sprite = CreateWhiteSquareSprite();
         var tiles = CreateTiles(sprite);
         var terrainDatas = CreateTerrainDatas();
-        var infantryStats = CreateDivisionStats("InfantryStats", DivisionType.Infantry, 100f, 10f, 2f, 100);
-        var tankStats = CreateDivisionStats("TankStats", DivisionType.Tank, 200f, 20f, 2f, 200);
+        var infantryStats = CreateDivisionStats("InfantryStats", DivisionType.Infantry, 100f, 10f, 4f, 100);
+        var tankStats = CreateDivisionStats("TankStats", DivisionType.Tank, 200f, 20f, 4f, 200);
         var gameConfig = CreateGameConfig();
         var circleSprite = CreateCircleSprite();
         var ringSprite = CreateRingSprite();
@@ -194,13 +194,14 @@ public class SetupWizard : Editor
         if (stats == null)
         {
             stats = ScriptableObject.CreateInstance<DivisionStats>();
-            stats.divisionType = type;
-            stats.maxHP = hp;
-            stats.damagePerSec = damage;
-            stats.baseSpeed = speed;
-            stats.cost = cost;
             AssetDatabase.CreateAsset(stats, path);
         }
+        stats.divisionType = type;
+        stats.maxHP = hp;
+        stats.damagePerSec = damage;
+        stats.baseSpeed = speed;
+        stats.cost = cost;
+        EditorUtility.SetDirty(stats);
         return stats;
     }
 
