@@ -127,7 +127,7 @@ namespace DotWars.UI
             // Keyboard hint
             GUI.color = Color.white;
             string hint = current == 0 ? "PAUSED — Space to resume" : $"Speed: {labels[current]} — Space to pause";
-            _labelStyle.fontSize = 16;
+            _labelStyle.fontSize = 18;
             GUI.Label(new Rect(x - 8, by + 48, totalW + 16, 22), hint, _labelStyle);
             _labelStyle.fontSize = 20;
         }

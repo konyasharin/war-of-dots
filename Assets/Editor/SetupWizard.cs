@@ -230,24 +230,21 @@ public class SetupWizard : Editor
 
     private static Sprite CreateShipSprite()
     {
-        return CreateSpriteAsset("Assets/Resources/Sprites/Ship.png", 64, 64, FilterMode.Bilinear, (tex) =>
+        return CreateSpriteAsset("Assets/Resources/Sprites/Ship.png", 64, 64, FilterMode.Point, (tex) =>
         {
             float cx = 32f, cy = 32f;
             for (int y = 0; y < 64; y++)
             {
                 for (int x = 0; x < 64; x++)
                 {
-                    float dy = (y - cy) / 28f; // vertical radius
-                    float dx = (x - cx) / 16f; // horizontal radius (narrower)
-
-                    // Pointed ends: squeeze horizontal radius near top/bottom
-                    float pointFactor = 1f - Mathf.Abs(dy) * 0.6f;
-                    pointFactor = Mathf.Max(pointFactor, 0.15f);
+                    float dy = (y - cy) / 26f;
+                    float dx = (x - cx) / 14f;
+                    float pointFactor = Mathf.Max(1f - Mathf.Abs(dy) * 0.7f, 0.1f);
                     float adjustedDx = dx / pointFactor;
-
                     float dist = adjustedDx * adjustedDx + dy * dy;
-                    float alpha = Mathf.Clamp01(1f - dist + 0.02f);
 
+                    // Sharp edge, no gradient
+                    float alpha = dist < 1f ? 1f : 0f;
                     tex.SetPixel(x, y, new Color(1, 1, 1, alpha));
                 }
             }
@@ -256,24 +253,29 @@ public class SetupWizard : Editor
 
     private static void CreateShipOutlineSprite()
     {
-        CreateSpriteAsset("Assets/Resources/Sprites/ShipOutline.png", 64, 64, FilterMode.Bilinear, (tex) =>
+        CreateSpriteAsset("Assets/Resources/Sprites/ShipOutline.png", 64, 64, FilterMode.Point, (tex) =>
         {
             float cx = 32f, cy = 32f;
             for (int y = 0; y < 64; y++)
             {
                 for (int x = 0; x < 64; x++)
                 {
+                    // Larger shape for outline
                     float dy = (y - cy) / 28f;
                     float dx = (x - cx) / 16f;
-                    float pointFactor = Mathf.Max(1f - Mathf.Abs(dy) * 0.6f, 0.15f);
+                    float pointFactor = Mathf.Max(1f - Mathf.Abs(dy) * 0.7f, 0.1f);
                     float adjustedDx = dx / pointFactor;
-                    float dist = adjustedDx * adjustedDx + dy * dy;
+                    float distOuter = adjustedDx * adjustedDx + dy * dy;
 
-                    // Outline: ring between 0.85 and 1.15
-                    float inner = Mathf.Clamp01((dist - 0.75f) * 5f);
-                    float outer = Mathf.Clamp01((1.2f - dist) * 5f);
-                    float alpha = inner * outer;
+                    // Inner shape (same as ship sprite)
+                    float dy2 = (y - cy) / 26f;
+                    float dx2 = (x - cx) / 14f;
+                    float pf2 = Mathf.Max(1f - Mathf.Abs(dy2) * 0.7f, 0.1f);
+                    float adx2 = dx2 / pf2;
+                    float distInner = adx2 * adx2 + dy2 * dy2;
 
+                    // Outline = inside outer but outside inner
+                    float alpha = (distOuter < 1f && distInner >= 1f) ? 1f : 0f;
                     tex.SetPixel(x, y, new Color(1, 1, 1, alpha));
                 }
             }
@@ -454,12 +456,13 @@ public class SetupWizard : Editor
         hpFillSr.color = Color.green;
         hpFillSr.sortingOrder = 14;
 
-        // Physics — Dynamic for real collision
+        // Physics — Dynamic but immovable by collision (high mass)
         var rb = go.AddComponent<Rigidbody2D>();
         rb.bodyType = RigidbodyType2D.Dynamic;
         rb.gravityScale = 0f;
-        rb.linearDamping = 10f;
-        rb.angularDamping = 10f;
+        rb.mass = 1000f;
+        rb.linearDamping = 50f;
+        rb.angularDamping = 50f;
         rb.constraints = RigidbodyConstraints2D.FreezeRotation;
         rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
 

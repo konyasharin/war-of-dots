@@ -38,9 +38,9 @@ namespace DotWars.UI
             _headerStyle.normal.textColor = Color.white;
             _infoStyle = new GUIStyle(GUI.skin.label) { fontSize = 18 };
             _infoStyle.normal.textColor = new Color(0.8f, 0.8f, 0.8f);
-            _errorStyle = new GUIStyle(GUI.skin.label) { fontSize = 16, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            _errorStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
             _errorStyle.normal.textColor = Color.red;
-            _toggleStyle = new GUIStyle(GUI.skin.toggle) { fontSize = 16 };
+            _toggleStyle = new GUIStyle(GUI.skin.toggle) { fontSize = 18 };
             _toggleStyle.normal.textColor = Color.white;
             _toggleStyle.onNormal.textColor = Color.white;
             _closeBtnStyle = new GUIStyle(GUI.skin.button) { fontSize = 18, fontStyle = FontStyle.Bold };

@@ -20,6 +20,11 @@ namespace DotWars.Units
         private Vector3 _boxStartScreen;
         private Vector3 _boxStartWorld;
 
+        // Line formation (Ctrl + RMB drag)
+        private bool _isLineForming;
+        private Vector3 _lineStartWorld;
+        private float _lineSpacing = 1.5f;
+
         public IReadOnlyList<Division> Selected => _selected;
 
         private void Awake()
@@ -44,7 +49,32 @@ namespace DotWars.Units
             HandleBoxSelection();
 
             if (Input.GetMouseButtonDown(1))
-                HandleRightClick();
+            {
+                if (Input.GetKey(KeyCode.LeftControl) && _selected.Count > 1)
+                {
+                    _isLineForming = true;
+                    _lineStartWorld = _camera.ScreenToWorldPoint(Input.mousePosition);
+                    _lineStartWorld.z = 0;
+                }
+                else
+                {
+                    HandleRightClick();
+                }
+            }
+
+            if (_isLineForming)
+            {
+                // Scroll to adjust spacing
+                float scroll = Input.GetAxis("Mouse ScrollWheel");
+                if (!Mathf.Approximately(scroll, 0f))
+                    _lineSpacing = Mathf.Clamp(_lineSpacing + scroll * 2f, 0.5f, 5f);
+
+                if (Input.GetMouseButtonUp(1))
+                {
+                    FinishLineFormation();
+                    _isLineForming = false;
+                }
+            }
         }
 
         private void HandleBoxSelection()
@@ -192,6 +222,32 @@ namespace DotWars.Units
             return result;
         }
 
+        private void FinishLineFormation()
+        {
+            Vector3 endWorld = _camera.ScreenToWorldPoint(Input.mousePosition);
+            endWorld.z = 0;
+
+            Vector2 dir = ((Vector2)endWorld - (Vector2)_lineStartWorld).normalized;
+            if (dir.sqrMagnitude < 0.01f) dir = Vector2.right;
+
+            // Perpendicular direction for the line
+            Vector2 lineDir = new Vector2(-dir.y, dir.x);
+            Vector2 center = (Vector2)_lineStartWorld;
+
+            int count = _selected.Count;
+            float totalWidth = (count - 1) * _lineSpacing;
+            Vector2 start = center - lineDir * (totalWidth * 0.5f);
+
+            for (int i = 0; i < count; i++)
+            {
+                if (_selected[i] == null) continue;
+                Vector2 pos = start + lineDir * (i * _lineSpacing);
+                var gridPos = MapManager.Instance.WorldToGrid(pos);
+                if (MapManager.Instance.IsPassable(gridPos))
+                    _selected[i].MoveTo(gridPos);
+            }
+        }
+
         public void ClearSelection()
         {
             foreach (var div in _selected)
@@ -202,9 +258,11 @@ namespace DotWars.Units
             _selected.Clear();
         }
 
-        // Draw selection box
         private void OnGUI()
         {
+            if (_isLineForming)
+                DrawLineFormationPreview();
+
             if (!_isBoxSelecting) return;
 
             var start = _boxStartScreen;
@@ -231,6 +289,41 @@ namespace DotWars.Units
             GUI.DrawTexture(new Rect(rect.x, rect.yMax - 1, rect.width, 1), Texture2D.whiteTexture);
             GUI.DrawTexture(new Rect(rect.x, rect.y, 1, rect.height), Texture2D.whiteTexture);
             GUI.DrawTexture(new Rect(rect.xMax - 1, rect.y, 1, rect.height), Texture2D.whiteTexture);
+        }
+
+        private void DrawLineFormationPreview()
+        {
+            if (_selected.Count < 2) return;
+
+            Vector3 endWorld = _camera.ScreenToWorldPoint(Input.mousePosition);
+            endWorld.z = 0;
+
+            Vector2 dir = ((Vector2)endWorld - (Vector2)_lineStartWorld).normalized;
+            if (dir.sqrMagnitude < 0.01f) dir = Vector2.right;
+            Vector2 lineDir = new Vector2(-dir.y, dir.x);
+            Vector2 center = (Vector2)_lineStartWorld;
+
+            int count = _selected.Count;
+            float totalWidth = (count - 1) * _lineSpacing;
+            Vector2 start = center - lineDir * (totalWidth * 0.5f);
+
+            // Draw dots at formation positions
+            for (int i = 0; i < count; i++)
+            {
+                Vector2 worldPos = start + lineDir * (i * _lineSpacing);
+                Vector3 screenPos = _camera.WorldToScreenPoint(worldPos);
+                screenPos.y = Screen.height - screenPos.y;
+
+                GUI.color = new Color(0.2f, 0.8f, 0.2f, 0.7f);
+                GUI.DrawTexture(new Rect(screenPos.x - 4, screenPos.y - 4, 8, 8), Texture2D.whiteTexture);
+            }
+
+            // Info text
+            GUI.color = Color.white;
+            var style = new GUIStyle(GUI.skin.label) { fontSize = 18, alignment = TextAnchor.MiddleCenter };
+            style.normal.textColor = new Color(0.2f, 0.8f, 0.2f);
+            GUI.Label(new Rect(Screen.width / 2f - 200, Screen.height - 50, 400, 30),
+                $"Line Formation — Spacing: {_lineSpacing:F1}  (Scroll to adjust)", style);
         }
     }
 }
