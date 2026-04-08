@@ -702,13 +702,13 @@ public class SetupWizard : Editor
 
         // === Ports ===
         // Find coast positions for ports dynamically
-        FoundPortPositions = new Vector2Int[4];
-        FoundPortPositions[0] = FindCoastTile(tilemap, 30, true, w);   // left coast y=30
-        FoundPortPositions[1] = FindCoastTile(tilemap, 15, true, w);   // left coast y=15
-        FoundPortPositions[2] = FindCoastTile(tilemap, 30, false, w);  // right coast y=30
-        FoundPortPositions[3] = FindCoastTile(tilemap, 45, false, w);  // right coast y=45
+        var portPositions = new Vector2Int[4];
+        portPositions[0] = FindCoastTile(tilemap, 30, true, w);
+        portPositions[1] = FindCoastTile(tilemap, 15, true, w);
+        portPositions[2] = FindCoastTile(tilemap, 30, false, w);
+        portPositions[3] = FindCoastTile(tilemap, 45, false, w);
 
-        foreach (var pp in FoundPortPositions)
+        foreach (var pp in portPositions)
             tilemap.SetTile(new Vector3Int(pp.x, pp.y, 0), port);
     }
 
